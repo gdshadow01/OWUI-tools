@@ -137,7 +137,7 @@ To stop:
 docker-compose down
 ```
 
-### Open WebUI setup
+# Open WebUI setup
 comming soon
 
 ## Default Ports
