@@ -1,0 +1,25 @@
+services:
+  websearch-fastapi:
+    build: .
+    container_name: websearch-fastapi
+    restart: unless-stopped
+#    ports:
+#      - "8011:8000"
+    environment:
+      - GOOGLE_PSE_API_KEY=${GOOGLE_PSE_API_KEY}
+      - GOOGLE_PSE_CX=${GOOGLE_PSE_CX}
+      - USE_GOOGLE_SEARCH=${USE_GOOGLE_SEARCH}
+      - USE_DUCKDUCKGO_SEARCH=${USE_DUCKDUCKGO_SEARCH}
+      - USE_SEARXNG_SEARCH=${USE_SEARXNG_SEARCH}
+      - PAGE_FETCH_TIMEOUT=${PAGE_FETCH_TIMEOUT}
+      - PAGE_MAX_CONTENT_LENGTH=${PAGE_MAX_CONTENT_LENGTH}
+      - TIKA_SERVER_URL=${TIKA_SERVER_URL}
+    env_file:
+      - .env
+    networks:
+      - ollama-tools
+      - searxng
+
+volumes:
+  valkey-data2:
+  searxng-data:

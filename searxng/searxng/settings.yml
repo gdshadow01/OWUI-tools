@@ -1,0 +1,201 @@
+# see https://docs.searxng.org/admin/settings/settings.html#settings-use-default-settings
+use_default_settings:
+  engines:
+    keep_only:
+      - google
+      - duckduckgo
+      - bing
+      - brave
+      - startpage
+
+server:
+  public_instance: false
+  # base_url is defined in the SEARXNG_BASE_URL environment variable, see .env and docker-compose.yml
+  secret_key: "1a2b3c4d5e7f8g901234567890"  # change this!
+  limiter: false  # enable this when running the instance for a public usage on the internet
+  image_proxy: true
+
+search:
+  # Filter results. 0: None, 1: Moderate, 2: Strict
+  safe_search: 0
+  # Existing autocomplete backends: "360search", "baidu", "brave", "dbpedia", "duckduckgo", "google", "yandex",
+  # "mwmbl", "naver", "seznam", "sogou", "startpage", "stract", "swisscows", "quark", "qwant", "wikipedia" -
+  # leave blank to turn it off by default.
+  autocomplete: ""
+  # minimun characters to type before autocompleter starts
+  autocomplete_min: 4
+  # backend for the favicon near URL in search results.
+  # Available resolvers: "allesedv", "duckduckgo", "google", "yandex" - leave blank to turn it off by default.
+  favicon_resolver: ""
+  # Default search language - leave blank to detect from browser information or
+  # use codes from 'languages.py'
+  default_lang: "auto"
+  # max_page: 0  # if engine supports paging, 0 means unlimited numbers of pages
+  # Available languages
+  # languages:
+  #   - all
+  #   - en
+  #   - en-US
+  #   - de
+  #   - it-IT
+  #   - fr
+  #   - fr-BE
+  # ban time in seconds after engine errors
+  ban_time_on_fail: 5
+  # max ban time in seconds after engine errors
+  max_ban_time_on_fail: 120
+  suspended_times:
+    # Engine suspension time after error (in seconds; set to 0 to disable)
+    # For error "Access denied" and "HTTP error [402, 403]"
+    SearxEngineAccessDenied: 3600
+    # For error "CAPTCHA"
+    SearxEngineCaptcha: 3600
+    # For error "Too many request" and "HTTP error 429"
+    SearxEngineTooManyRequests: 3600
+    # Cloudflare CAPTCHA
+    cf_SearxEngineCaptcha: 3600
+    cf_SearxEngineAccessDenied: 3600
+    # ReCAPTCHA
+    recaptcha_SearxEngineCaptcha: 3600
+  formats:
+    - html
+    - json
+    - csv
+    - rss
+
+valkey:
+  url: valkey://redis:6379/0
+
+ui:
+  # Custom static path - leave it blank if you didn't change
+  static_path: ""
+  # Custom templates path - leave it blank if you didn't change
+  templates_path: ""
+  # query_in_title: When true, the result page's titles contains the query
+  # it decreases the privacy, since the browser can records the page titles.
+  query_in_title: false
+  # ui theme
+  default_theme: simple
+  # center the results ?
+  center_alignment: false
+  # URL prefix of the internet archive, don't forget trailing slash (if needed).
+  # cache_url: "https://webcache.googleusercontent.com/search?q=cache:"
+  # Default interface locale - leave blank to detect from browser information or
+  # use codes from the 'locales' config section
+  default_locale: ""
+  # Open result links in a new tab by default
+  # results_on_new_tab: false
+  theme_args:
+    # style of simple theme: auto, light, dark, black
+    simple_style: auto
+  # Perform search immediately if a category selected.
+  # Disable to select multiple categories at once and start the search manually.
+  search_on_category_select: true
+  # Hotkeys: default or vim
+  hotkeys: default
+  # URL formatting: pretty, full or host
+  url_formatting: pretty
+
+# Lock arbitrary settings on the preferences page.
+#
+# preferences:
+#   lock:
+#     - categories
+#     - language
+#     - autocomplete
+#     - favicon
+#     - safesearch
+#     - method
+#     - doi_resolver
+#     - locale
+#     - theme
+#     - results_on_new_tab
+#     - search_on_category_select
+#     - method
+#     - image_proxy
+#     - query_in_title
+
+# communication with search engines
+#
+
+outgoing:
+  # default timeout in seconds, can be override by engine
+  request_timeout: 5.0
+  # the maximum timeout in seconds
+  # max_request_timeout: 10.0
+  # suffix of searxng_useragent, could contain information like an email address
+  # to the administrator
+  useragent_suffix: ""
+  # The maximum number of concurrent connections that may be established.
+  pool_connections: 100
+  # Allow the connection pool to maintain keep-alive connections below this
+  # point.
+  pool_maxsize: 20
+  # See https://www.python-httpx.org/http2/
+  enable_http2: true
+  # uncomment below section if you want to use a custom server certificate
+  # see https://www.python-httpx.org/advanced/#changing-the-verification-defaults
+  # and https://www.python-httpx.org/compatibility/#ssl-configuration
+  #  verify: ~/.mitmproxy/mitmproxy-ca-cert.cer
+  #
+  # uncomment below section if you want to use a proxyq see: SOCKS proxies
+  #   https://2.python-requests.org/en/latest/user/advanced/#proxies
+  # are also supported: see
+  #   https://2.python-requests.org/en/latest/user/advanced/#socks
+  #
+  #  proxies:
+  #    all://:
+  #      - http://proxy1:8080
+  #      - http://proxy2:8080
+  #
+  #  using_tor_proxy: true
+  #
+  # Extra seconds to add in order to account for the time taken by the proxy
+  #
+  #  extra_proxy_timeout: 10
+  #
+  # uncomment below section only if you have more than one network interface
+  # which can be the source of outgoing search requests
+  #
+  #  source_ips:
+  #    - 1.1.1.1
+  #    - 1.1.1.2
+  #    - fe80::/126
+
+
+
+
+engines:
+
+
+  - name: bing
+    engine: bing
+    shortcut: bi
+    disabled: false
+    weight: 0.5
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+
+  - name: braveapi
+    engine: braveapi
+    # read https://docs.searxng.org/dev/engines/online/brave.html
+    api_key: ""
+    inactive: true
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    time_range_support: true
+    paging: true
+    categories: [general, web]
+    brave_category: search
+    # brave_spellcheck: true
+
+  - name: google
+    engine: google
+    shortcut: go
+    timeout: 10.0
+    weight: 2.0

@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: MCP Python Tool
+  version: "1.0"
+
+servers:
+  - url: http://localhost:8000
+
+paths:
+  /exec/python:
+    post:
+      operationId: runPython
+      summary: Execute Python code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stdout:
+                    type: string
+                  stderr:
+                    type: string
+
+  /exec/bash:
+    post:
+      operationId: runBash
+      summary: Execute shell command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+      responses:
+        "200":
+          description: Output
+
+  /files/list:
+    get:
+      operationId: listFiles
+      summary: List files in workspace
+      responses:
+        "200":
+          description: File list

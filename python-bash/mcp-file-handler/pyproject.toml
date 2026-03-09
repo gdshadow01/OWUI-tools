@@ -1,0 +1,10 @@
+[project]
+name = "mcp-file-handler"
+version = "0.1.0"
+description = "File handling MCP server for OpenWebUI"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=0.9.0",
+    "requests>=2.31.0",
+    "pydantic>=2.0.0",
+]

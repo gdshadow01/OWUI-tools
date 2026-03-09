@@ -1,0 +1,18 @@
+services:
+  legal-paragraph-api:
+    build: .
+#      context: /home/shadow01/ollama-tools/01_RAG/02b_My_Litte_RAG_Laws
+#      dockerfile: Dockerfile
+    container_name: my_little_rag_law_retrieval
+#    ports:
+#      - "8023:8000"
+    volumes:
+      - ./input:/app/input
+    environment:
+      - TRANSPORT_TYPE=openapi
+      - LEGAL_DOCUMENTS_DIR=input
+    env_file:
+      - LAW.env
+    restart: unless-stopped
+    networks:
+      - ollama-tools

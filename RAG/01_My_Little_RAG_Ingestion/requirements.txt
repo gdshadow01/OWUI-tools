@@ -1,0 +1,18 @@
+# Core dependencies for ingestion
+tqdm
+beautifulsoup4
+
+# Tokenizer
+tiktoken
+
+# Langchain & related
+langchain
+langchain-openai
+langchain-ollama
+#langchain-text-splitters
+
+# Vector stores
+qdrant-client
+
+## Text processing
+#nltk

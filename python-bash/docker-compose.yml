@@ -1,0 +1,36 @@
+## must create workspace folder and chown it:
+## mkdir -p ./workspace && chown 1000:1000 ./workspace
+
+services:
+  python-bash-tool:
+    build: .
+    container_name: python-bash-tool
+    restart: unless-stopped
+#    ports:
+#      - "8000:8000"
+    volumes:
+      - ./workspace:/workspace
+    pids_limit: 128
+    mem_limit: 2g
+    cpus: '2'
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 1024
+    networks:
+      - ollama-tools
+
+  mcp-file-handler:
+    build: ./mcp-file-handler
+    container_name: mcp-file-handler
+#    ports:
+#      - "8015:8015"
+    volumes:
+      - ./workspace:/workspace
+    environment:
+      - WORKSPACE_DIR=/workspace
+      - OWUI_URL=http://ollama-webui:8080
+      - PORT=8015
+    restart: unless-stopped
+    networks:
+      - ollama-tools

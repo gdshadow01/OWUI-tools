@@ -1,0 +1,26 @@
+# --- Environment files (ignore all by default) ---
+.env
+.env.*
+*.env
+
+# Allow safe templates
+!.env.example
+!.env.template
+!.env.sample
+
+# --- Private keys / certificates ---
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+
+# --- Other common secret files ---
+secrets.*
+*.secret
+*.credentials
+*.token
+
+# --- Local config overrides ---
+*.local
+config.local.*

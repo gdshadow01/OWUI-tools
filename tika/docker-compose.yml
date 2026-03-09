@@ -1,0 +1,9 @@
+services:
+  tika:
+    restart: unless-stopped
+    image: apache/tika:latest
+    container_name: tika
+    ports:
+      - 9998:9998
+    networks:
+      - ollama-tools

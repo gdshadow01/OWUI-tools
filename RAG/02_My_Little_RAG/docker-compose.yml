@@ -1,0 +1,39 @@
+services:
+  my_little_rag-retrieval:
+    build: .
+#      context: /home/shadow01/ollama-tools/01_RAG/02_My_Little_RAG
+#      dockerfile: Dockerfile
+    container_name: my_little_rag-retrieval
+    restart: unless-stopped
+#    ports:
+#      - "8020:8000"  # Expose the service on port 8001
+    environment:
+      # Enable unbuffered output for Python
+      - PYTHONUNBUFFERED=1
+      # Transport Type (set to 'mcp' or 'openapi')
+      # mcp: streamable http, http://192.168.0.101:8001/mcp
+      # openapi: http://192.168.0.101:8001 ; URL openapi.json
+      - TRANSPORT_TYPE=${TRANSPORT_TYPE}
+      # Qdrant Configuration
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_PORT=${QDRANT_PORT}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
+      # Provider (set to 'ollama' to use Ollama, 'openai' for OpenAI-compatible services)
+      - PROVIDER=${PROVIDER:-openai}
+      # embedding
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME}
+      - VECTOR_SIZE=${VECTOR_SIZE}
+      # OpenAI-specific settings (only used when PROVIDER=openai)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      # Ollama-specific settings (only used when PROVIDER=ollama)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # Application path
+      - APP_BASE_PATH=${APP_BASE_PATH}
+      # Sparse vector configuration
+      - SPARSE_INDEX_SPACE=${SPARSE_INDEX_SPACE}
+    env_file:
+      - .env
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    networks:
+      - ollama-tools

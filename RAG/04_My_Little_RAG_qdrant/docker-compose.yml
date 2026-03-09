@@ -1,0 +1,13 @@
+services:
+
+  qdrant:
+    image: qdrant/qdrant
+    restart: unless-stopped
+    container_name: qdrant_master
+#    ports:
+#      - 6777:6333
+#      - 6778:6334
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    networks:
+      - ollama-tools

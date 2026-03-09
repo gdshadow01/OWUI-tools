@@ -1,0 +1,50 @@
+services:
+  my-rag-ingest-only:
+    build: .
+    container_name: my-rag-ingest-only
+    volumes:
+      - ./input:/app/input
+      - ./chunks:/app/chunks
+      - ./metadata:/app/metadata
+
+    entrypoint: >
+      bash -c "
+        echo 'Running ingest_index.py with provider: ${PROVIDER:-openai}...';
+        PROVIDER=${PROVIDER:-openai} python ingest_index.py;
+        echo 'Ingestion complete. Container will now exit.';
+        exit 0
+      "
+    environment:
+      # Enable unbuffered output for Python
+      - PYTHONUNBUFFERED=1
+      # Provider (set to 'ollama' to use Ollama, 'openai' for OpenAI-compatible services)
+      - PROVIDER=${PROVIDER:-openai}
+      # qdrant
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_PORT=${QDRANT_PORT}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION}
+      # embedding
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME}
+      - VECTOR_SIZE=${VECTOR_SIZE}
+      # OpenAI-specific settings (only used when PROVIDER=openai)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_RETRIVAL_URL=${OPENAI_RETRIVAL_URL}
+      # Ollama-specific settings (only used when PROVIDER=ollama)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # Application path
+      - APP_BASE_PATH=${APP_BASE_PATH}
+      # chunking
+      - MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE}
+      - MIN_CHUNK_SIZE=${MIN_CHUNK_SIZE}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP}
+      # Force reindex (set to "true" to reindex all documents)
+      - FORCE_REINDEX=false
+    networks:
+      - ollama-tools
+
+
+networks:
+  ollama-tools:
+    external: true
+
