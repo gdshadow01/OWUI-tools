@@ -1,16 +1,17 @@
 # my_little_mcp_tools
 
-Collection of tools for OpenWebUI.
+Collection of tools for Open WebUI.
 
-## Available Tools
+## Tools
 
-- **websearch** (port 8011) - Web search functionality with Google, DuckDuckGo, and SearxNG support
-- **RAG/02_My_Little_RAG** (port 8020) - RAG retrieval service
-- **RAG/03_My_Litte_RAG_Laws** (port 8023) - RAG for legal documents
-- **RAG/04_My_Little_RAG_qdrant** (port 6777) - RAG with Qdrant integration
-- **openterminal** (port 8000) - Terminal access
-- **tika** (port 9998) - Apache Tika document parser
-- **searxng** (port 8040) - Privacy-respecting metasearch engine
+- **websearch** - Web search and page fetch functionality with Google, DuckDuckGo, and SearxNG support
+- **RAG/01_My_Little_RAG_Ingestion** - RAG ingestion 
+- **RAG/02_My_Little_RAG** - RAG retrieval 
+- **RAG/03_My_Litte_RAG_Laws** - returns legislative text (only tested with german laws)
+- **RAG/04_My_Little_RAG_qdrant** - docker-compose.yml for [Qdrant](https://github.com/qdrant/qdrant) (database for RAG tools)  
+- **openterminal** - docker-compose.yml for [Open Terminal](https://github.com/open-webui/open-terminal) (provides terminal access)
+- **tika** - docker-compose.yml for [Apache Tika](https://github.com/apache/tika) (document parser for websearch and Open Webui)
+- **searxng** - docker-compose.yml and settings for [SearXNG](https://github.com/searxng/searxng) (metasearch engine)
 
 ## Setup
 
@@ -33,6 +34,7 @@ networks:
   ollama-tools:
     name: ollama-tools
     driver: bridge
+  # other networks (reverse proxy, ...)  
 ```
 
 Example `/home/user/open-webui/docker-compose.yml`:
@@ -58,6 +60,7 @@ services:
     restart: unless-stopped
     networks:
       - ollama-tools
+    # - other networks (reverse proxy, ...)  
 ```
 
 The `docker-compose.yml` from this repository should be at `/home/user/my_little_mcp_tools/docker-compose.yml`.
@@ -133,3 +136,15 @@ To stop:
 ```bash
 docker-compose down
 ```
+
+### Open WebUI setup
+comming soon
+
+## Default Ports
+- **websearch:** port 8011
+- **RAG/02_My_Little_RAG:** port 8020
+- **RAG/03_My_Litte_RAG_Laws:** 8023
+- **RAG/04_My_Little_RAG_qdrant:** port 6777
+- **openterminal:** port 8000
+- **tika:** port 9998
+- **searxng:** port: 8040
