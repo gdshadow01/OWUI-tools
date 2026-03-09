@@ -138,7 +138,22 @@ docker-compose down
 ```
 
 # Open WebUI setup
-comming soon
+
+**Work in progress**
+
+In Open WebUI, go to **Admin Panel** -> **Settings** -> **Integrations**. Hit the **+** next to **Manage Tool Servers**.
+
+Set **Type** to **OpenAPI**. Enter a **name** (e.g., `web-search`) and a **description** (e.g., `search the www and fetch websites`). Enter the **URL** in format `http://docker_container_name:port`, e.g., for websearch `http://websearch-fastapi:8000`. Leave **Auth** empty. Click the button next to URL for reloading. Make sure the tool is activated (button green). Click **save**.
+
+## Usage in chat
+
+Make sure **function calling** is set to **native** (and model supports it - all newish ones do). Set this either in controls for chat, in user settings, or in model settings, or create a custom model. Tools can also be set to always active for models or custom models.
+
+# Open Terminal setup
+
+At **Settings** -> **Integrations**, click the **+** next to **Open Terminal**. Set a **name** (e.g., `Openterminal`). Set **URL** to `http://openterminal:8000`. Set **Auth** to **Bearer** and set **API Key** to `OPEN_TERMINAL_API_KEY` from the `.env` file.
+
+In Chats, click the cloud symbol next to the microphone symbol and select Openterminal.
 
 ## Default Ports
 - **websearch:** port 8011
