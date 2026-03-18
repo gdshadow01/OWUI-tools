@@ -9,8 +9,16 @@ services:
       - ./data:/home/user
     environment:
       - OPEN_TERMINAL_API_KEY=&{OPEN_TERMINAL_API_KEY}
+      - OPEN_TERMINAL_MAX_SESSIONS=16
+      - OPEN_TERMINAL_ENABLE_TERMINAL=true
+      - OPEN_TERMINAL_EXECUTE_TIMEOUT=20
+      - OPEN_TERMINAL_MULTI_USER=false
     env_file:
       - .env
     networks:
       - ollama-tools
-
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "1.5"
