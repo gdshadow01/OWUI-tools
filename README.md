@@ -12,6 +12,7 @@ Collection of tools for Open WebUI.
 - **openterminal** - docker-compose.yml for [Open Terminal](https://github.com/open-webui/open-terminal) (provides terminal access)
 - **tika** - docker-compose.yml for [Apache Tika](https://github.com/apache/tika) (document parser for websearch and Open Webui)
 - **searxng** - docker-compose.yml and settings for [SearXNG](https://github.com/searxng/searxng) (metasearch engine)
+- **litellm** - docker-compose.yml and settings for [litellm](https://github.com/BerriAI/litellm) (AI Gateway)
 
 ## Setup
 
