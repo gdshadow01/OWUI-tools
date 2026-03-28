@@ -1,6 +1,6 @@
-# my_little_mcp_tools
+# OWUI-tools 
 
-Collection of tools for Open WebUI.
+Collection of Tools and Services for OpenWebUI with docker-compose.yml and settings. 
 
 ## Tools
 
