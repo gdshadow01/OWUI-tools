@@ -28,7 +28,7 @@ Create a main docker-compose.yml at `/home/user/docker-compose.yml`:
 ```yaml
 include:
   - path: ./open-webui/docker-compose.yml
-  - path: ./my_little_mcp_tools/docker-compose.yml
+  - path: ./OWUI-tools/docker-compose.yml
 
 networks:
   ollama-tools:
@@ -63,7 +63,7 @@ services:
     # - other networks (reverse proxy, ...)  
 ```
 
-The `docker-compose.yml` from this repository should be at `/home/user/my_little_mcp_tools/docker-compose.yml`.
+The `docker-compose.yml` from this repository should be at `/home/user/OWUI-tools/docker-compose.yml`.
 
 ### Configuration
 
