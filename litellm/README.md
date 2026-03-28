@@ -29,7 +29,7 @@ curl --location 'http://localhost:4000/key/generate' \
 find "key":"sk-SOMETHING" - use this key in OpenWebUI. 
 
 # OWUI Setup
-URL: http://litellm-proxy:4000/v1
-Auth: Bearer: your virtual key
+- URL: http://litellm-proxy:4000/v1
+- Auth: Bearer: your virtual key
 
 see https://docs.litellm.ai/docs/tutorials/openweb_ui
