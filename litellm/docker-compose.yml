@@ -1,0 +1,52 @@
+services:
+  litellm:
+    image: docker.litellm.ai/berriai/litellm:main-latest
+    container_name: litellm-proxy
+#    ports:
+#      - "4000:4000"
+    volumes:
+      - ./config/config.yml:/app/config.yaml:ro  # Read-only mount for config
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+#      STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
+    command:
+      - "--config"
+      - "/app/config.yaml"
+      - "--port"
+      - "4000"
+    restart: unless-stopped
+    networks:
+      - ollama-tools
+      - litellm
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+#    ports:
+#      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - litellm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  litellm:
+    name: litellm

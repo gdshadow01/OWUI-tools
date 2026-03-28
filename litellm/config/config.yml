@@ -1,0 +1,216 @@
+model_list:
+  # ==================== LOCAL MODELS ====================
+
+  # LlamaCPP - OpenAI-compatible local server
+  - model_name: "llamaCPP/*"
+    litellm_params:
+      model: "openai/*"  # Replace with your actual model name
+      api_base: os.environ/LLAMACPP_API_BASE
+      api_key: "dummy-key"  # LlamaCPP may not require key
+    model_info:
+      mode: chat
+
+  # Ollama - Local models
+#  - model_name: ollama-llama3
+#    litellm_params:
+#      model: ollama/llama3
+#      api_base: os.environ/OLLAMA_API_BASE  # Defaults to http://localhost:11434
+#      # Optional: keep_alive: "8m"  # Keep model loaded for 8 minutes
+#    model_info:
+#      mode: chat
+#      supports_function_calling: true
+
+#  - model_name: ollama-deepseek-r1
+#    litellm_params:
+#      model: ollama_chat/deepseek-r1
+#      api_base: os.environ/OLLAMA_API_BASE
+#    model_info:
+#      mode: chat
+
+  # ==================== Z.AI (ZHIPU AI) ====================
+  # CODING API
+  - model_name: zai-glm-4.5
+    litellm_params:
+      model: zai/glm-4.5
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-4.5-air
+    litellm_params:
+      model: zai/glm-4.5-air
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-4.6
+    litellm_params:
+      model: zai/glm-4.6
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-4.7
+    litellm_params:
+      model: zai/glm-4.7
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-5
+    litellm_params:
+      model: zai/glm-5
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-5-turbo
+    litellm_params:
+      model: zai/glm-5-turbo
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+  - model_name: zai-glm-5.1
+    litellm_params:
+      model: zai/glm-5-turbo
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+
+
+  # ==================== OPENROUTER ====================
+
+  - model_name: openrouter-deepseek-v3.2-exp(0.27/0.4)
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v3.2-exp
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-gpt-oss-120b(0.039/0.19)
+    litellm_params:
+      model: openrouter/openai/gpt-oss-120b
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-gpt-oss-20b(0.03/0.14)
+    litellm_params:
+      model: openrouter/openai/gpt-oss-20b
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-grok-4.1-fast(0.2/0.5)
+    litellm_params:
+      model: openrouter/x-ai/grok-4.1-fast
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-z-ai/glm-4.7-flash(0.06/0.4)
+    litellm_params:
+      model: openrouter/z-ai/glm-4.7-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-zai-glm-4.5-air-free
+    litellm_params:
+      model: openrouter/z-ai/glm-4.5-air:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-zai-glm-4.7(0.38/1.98)
+    litellm_params:
+      model: openrouter/z-ai/glm-4.7
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-kimi-K2.5(0.45/2.20)
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.5
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: openrouter-minimax-m2.7(0.3/1.20)
+    litellm_params:
+      model: openrouter/minimax/minimax-m2.7
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ==================== DEEPSEEK ====================
+
+  - model_name: deepseek-chat(0.28/0.42)
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  - model_name: deepseek-reasoner(0.28/0.42)
+    litellm_params:
+      model: deepseek/deepseek-reasoner
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  # ==================== MISTRAL AI ====================
+
+  - model_name: mistral-mistral-small(0.1/0.3)
+    litellm_params:
+      model: mistral/mistral-small-latest
+      api_key: os.environ/MISTRAL_API_KEY
+
+  - model_name: mistral-mistral-large(0.5/1.5)
+    litellm_params:
+      model: mistral/mistral-large-latest
+      api_key: os.environ/MISTRAL_API_KEY
+
+  - model_name: mistral-mistral-codestral(0.3/0.9)
+    litellm_params:
+      model: mistral/codestral-latest
+      api_key: os.environ/MISTRAL_API_KEY
+
+  - model_name: mistral-mistral-medium(0.4/2)
+    litellm_params:
+      model: mistral/mistral-medium-latest
+      api_key: os.environ/MISTRAL_API_KEY
+
+  # ==================== GOOGLE / GEMINI ====================
+
+  - model_name: google-gemini-3-flash-preview
+    litellm_params:
+      model: gemini/gemini-3-flash-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: google-gemini-3-pro-preview
+    litellm_params:
+      model: gemini/gemini-3.1-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  # ==================== GROQ ====================
+
+  - model_name: groq-compound
+    litellm_params:
+      model: groq/groq/compound
+      api_key: os.environ/GROQ_API_KEY
+
+  - model_name: groq-gpt-oss-120b
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+
+  - model_name: groq-whisper-large-v3
+    litellm_params:
+      model: groq/whisper-large-v3
+      api_key: os.environ/GROQ_API_KEY
+
+  - model_name: groq-whisper-large-v3-turbo
+    litellm_params:
+      model: groq/whisper-large-v3-turbo
+      api_key: os.environ/GROQ_API_KEY
+
+  # ==================== ALIBABA DASHSCOPE (QWEN) ====================
+
+#  - model_name: ali-qwen-flash(0.05/0.4)
+#    litellm_params:
+#      model: dashscope/qwen-flash
+#      api_key: os.environ/DASHSCOPE_API_KEY
+#      api_base: os.environ/DASHSCOPE_API_BASE
+
+
+# ==================== GENERAL SETTINGS ====================
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+# ==================== LITELLM SETTINGS ====================
+litellm_settings:
+    check_provider_endpoint: true
+  # Optional: Disable SSL verification for self-signed certificates
+  # ssl_verify: false
+
+  # Optional: Enable caching
+  # cache: true
+  # cache_params:
+  #   type: simple
+
+  # Optional: Set drop params (for providers that don't support certain params)
+  # drop_params: ["user", "messages"]  # Example: don't drop these
