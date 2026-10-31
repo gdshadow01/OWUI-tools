@@ -137,44 +137,40 @@ model_list:
 
   # ==================== HERMES VIRTUAL MODELS ====================
   # Virtual aliases for hermes profiles — swap backing model HERE, not in profiles.
-  # effort via extra_body: zai transform rejects top-level reasoning_effort (verified litellm 1.93.0).
-  # ChatGPT automatic-routing trial ended 2026-10-25: restore Z.ai defaults.
-  # Concrete ChatGPT models remain available for manual selection below.
+  # Primary lanes use the ChatGPT subscription on .209 only (2026-10-31).
+  # Effort uses the Responses wire shape: extra_body.reasoning.effort.
+  # Top-level reasoning_effort is dropped for these IDs by v1.103.2.
+  # Keep the existing Z.ai heartbeat -> DeepSeek fallback chains unchanged.
+  # ChatGPT spend is subscription quota ($0 per-token in proxy logs).
   - model_name: hermes-tasks
     litellm_params:
-      model: zai/glm-5.3-flash
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
+      model: chatgpt/gpt-6-luna
       extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.00000015
-      output_cost_per_token: 0.0000005
-      cache_read_input_token_cost: 0.00000003
+        reasoning:
+          effort: high
+      drop_params: true
+    model_info:
+      mode: responses
 
   - model_name: hermes-plan
     litellm_params:
-      model: zai/glm-5.3
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
+      model: chatgpt/gpt-6.1-sol
       extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.0000014
-      output_cost_per_token: 0.0000044
-      cache_read_input_token_cost: 0.00000026
+        reasoning:
+          effort: xhigh
+      drop_params: true
+    model_info:
+      mode: responses
 
   - model_name: hermes-execute
     litellm_params:
-      model: zai/glm-5.3-flash
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
+      model: chatgpt/gpt-6.1-sol
       extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.00000015
-      output_cost_per_token: 0.0000005
-      cache_read_input_token_cost: 0.00000003
+        reasoning:
+          effort: high
+      drop_params: true
+    model_info:
+      mode: responses
 
   # Legacy coding pair (opencode repinned to hermes-plan/hermes-tasks
   # 2026-10-31); kept as manual/rollback names on the main-key allowlist.
@@ -244,13 +240,10 @@ model_list:
       cache_read_input_token_cost: 0.000000003  # $0.003 / 1M cache-hit (peak $0.006)
 
   # ---- Heartbeat lane twins (2026-10-31, user-directed) ----
-  # Same backings + efforts as their primary lanes. Two roles: (a) hop-1
-  # proxy-side fallback targets for the primaries (same upstream, separate
-  # deployment = separate cooldown bucket); (b) dedicated names for
-  # high-frequency heartbeat/cron traffic so it is routable + monitorable
-  # separately in spend logs. Deliberately NO fallbacks of their own (see
-  # litellm_settings.fallbacks): if zai is out, heartbeat calls fail instead
-  # of silently burning deepseek PAYG. Efforts mirror the primaries (high).
+  # Z.ai backings retained independently of the ChatGPT primary lanes. Two roles:
+  # (a) hop-1 fallback targets; (b) separately routable heartbeat/cron traffic.
+  # Deliberately NO fallbacks of their own: if zai is out, heartbeat calls
+  # fail instead of silently burning deepseek PAYG. All three stay at high.
   - model_name: hermes-heartbeat-plan
     litellm_params:
       model: zai/glm-5.3
@@ -618,6 +611,7 @@ litellm_settings:
       - fallback_notify.fallback_notifier
       - strip_thinking.strip_thinking_handler  # pop client-sent `thinking` for zai-backed groups (litellm #31084/#31085, opencode 1.17.9 always sends it)
       - codex_session_id.codex_session_id_hook  # stable sharded session ids for chatgpt/* groups -> backend prompt-cache reuse (plan 261026)
+      - enforce_effort_policy.effort_policy_handler  # managed-alias client-effort strip (plan 261031)
 
 
       # Optional: Disable SSL verification for self-signed certificates

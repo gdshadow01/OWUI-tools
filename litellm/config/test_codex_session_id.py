@@ -80,8 +80,16 @@ def test_shard_math():
     assert got == expect, (got, expect)
 
 
+def test_primary_chatgpt_groups_get_session_ids():
+    for model in ("hermes-plan", "hermes-execute", "hermes-tasks"):
+        a = _run(model)
+        b = _run(model)
+        assert SID_RE.match(a["metadata"]["session_id"]), model
+        assert a["metadata"]["session_id"] == b["metadata"]["session_id"], model
+
+
 def test_non_chatgpt_groups_untouched():
-    for model in ("hermes-plan", "zai-glm-5.3", "glm-5.3-flash", "unknown-model", ""):
+    for model in ("hermes-heartbeat-plan", "zai-glm-5.3", "glm-5.3-flash", "unknown-model", ""):
         d = _data(model)
         before = copy.deepcopy(d)
         out = asyncio.run(

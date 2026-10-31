@@ -50,6 +50,9 @@ CHATGPT_GROUPS = frozenset(
         "chatgpt-gpt-6.1-sol",
         "chatgpt-gpt-6-luna",
         "chatgpt-gpt-6-astra",
+        "hermes-plan",
+        "hermes-execute",
+        "hermes-tasks",
     }
 )
 

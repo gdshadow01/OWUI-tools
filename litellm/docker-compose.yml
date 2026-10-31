@@ -10,6 +10,7 @@ services:
       - ./config/fallback_notify.py:/app/fallback_notify.py:ro  # callback module referenced by config.yml
       - ./config/strip_thinking.py:/app/strip_thinking.py:ro  # callback module referenced by config.yml
       - ./config/codex_session_id.py:/app/codex_session_id.py:ro  # callback module referenced by config.yml
+      - ./config/enforce_effort_policy.py:/app/enforce_effort_policy.py:ro  # callback module referenced by config.yml (plan 261031)
       - ./chatgpt-auth:/app/chatgpt-auth  # ChatGPT subscription OAuth tokens (rw: proxy rewrites auth.json on refresh)
     env_file:
       - .env
