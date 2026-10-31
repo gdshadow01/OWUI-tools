@@ -17,8 +17,11 @@ zero hook log lines). This harness drives the REAL HTTP boundary:
      resolve cleanly. A body-conditioned outage rule forces the fallback
      chain for the per-hop effort proof.
   3. Runs the pinned v1.103.2 image (digest-checked) in an ISOLATED scratch
-     container on 127.0.0.1 with dummy creds, mounting the working-tree
-     callback files. Never touches .209 or any running proxy.
+     container with no published ports and dummy creds, mounting the working-tree
+     callback files. Never touches .209 or any running proxy. An internal
+     per-run Docker bridge prevents external upstream routing. Capture binds
+     only its gateway and requires a run token and owned-container source.
+     T3 substitutes Z.ai; T2 actual ChatGPT bridge interception is complementary.
   4. Probes over HTTP with the master key and asserts:
        - BINDING: all ten managed aliases + reasoning:false -> HTTP 400
          managed-alias-effort-policy (the exact probe that failed on deploy);
@@ -35,15 +38,22 @@ zero hook log lines). This harness drives the REAL HTTP boundary:
      Reasoning-token counts are never used as evidence.
 
 Usage: python3 test_enforce_effort_policy_proxy_http.py [--out DIR] [--keep]
-Exit 0 only if every case passes. Requires docker + the pinned image.
+Exit 0 only if every case passes. Requires local rootful Linux Docker bridge
+access and the already-local pinned image; no image pulls. Evidence is written
+under a unique run directory beneath --out. No proxy ports are published
+(--proxy-port was removed). --keep retains only this run's labeled container
+and network, never the capture listener; remove the reported container ID and
+then network ID after inspection. This is not a sandbox against host root or
+Docker administrators, who can read tokens and join Docker networks.
 """
 
 import argparse
 import hashlib
 import json
 import os
-import socket
-import subprocess
+import secrets
+from pathlib import Path
+from proxy_http_resources import ScratchResources, sh
 import sys
 import threading
 import time
@@ -53,8 +63,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_YML = os.path.join(HERE, "config.yml")
-CONTAINER = "litellm-t3"
-PROXY_PORT = 4010  # 127.0.0.1 on host -> 4000 in container
+PROXY_BASE = None  # Direct host access to the internal run bridge; no published ports.
 IMAGE = (
     "docker.litellm.ai/berriai/litellm:v1.103.2"
     "@sha256:f63fb81b831b170ec16851e23c36ac5bf52ef106b271406429524a2ed730bbfd"
@@ -83,6 +92,8 @@ MANAGED = [
 ALLOWED_TWINS = {"hermes-plan-zai", "hermes-execute-zai", "hermes-tasks-zai"}
 THINKING_OPENCODE = {"type": "enabled", "clear_thinking": False}
 MESSAGES = [{"role": "user", "content": "Reply with the single word: ok"}]
+
+LOCAL_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 RESULTS = []
 CAPTURES = []
@@ -127,11 +138,22 @@ class CaptureHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def authorized(self):
+        if (self.headers.get("Authorization") != f"Bearer {self.server.token}"
+                or self.client_address[0] != self.server.allowed_source):
+            self._reply_json({"error": "unauthorized capture request"}, code=403)
+            return False
+        return True
+
     def do_GET(self):
+        if not self.authorized():
+            return
         # /models-style answers for any upstream introspection
         self._reply_json({"object": "list", "data": []})
 
     def do_POST(self):
+        if not self.authorized():
+            return
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length) if length else b"{}"
         try:
@@ -166,22 +188,28 @@ class CaptureHandler(BaseHTTPRequestHandler):
         self._reply_json(CANNED)
 
 
-def start_capture_server():
-    probe = socket.socket()
-    probe.bind(("", 0))
-    port = probe.getsockname()[1]
-    probe.close()
-    server = ThreadingHTTPServer(("", port), CaptureHandler)
+def start_capture_server(bind_host, token):
+    server = ThreadingHTTPServer((bind_host, 0), CaptureHandler)
+    server.token = token
+    server.allowed_source = None  # Fail closed until the owned container is inspected.
     thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server, port
+    try:
+        thread.start()
+    except BaseException:
+        server.server_close()
+        raise
+    return server, thread
+
+
+def stop_capture_server(server, thread):
+    try:
+        server.shutdown()
+    finally:
+        server.server_close()
+        thread.join(timeout=5)
 
 
 # ------------------------------- scratch setup --------------------------------
-
-
-def sh(cmd, timeout=120):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
 def build_scratch_config(cap_base):
@@ -207,10 +235,10 @@ def build_scratch_config(cap_base):
 
 def wait_health(timeout_s=240):
     deadline = time.time() + timeout_s
-    url = f"http://127.0.0.1:{PROXY_PORT}/health/liveliness"
+    url = f"{PROXY_BASE}/health/liveliness"
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as resp:
+            with LOCAL_HTTP.open(url, timeout=2) as resp:
                 if resp.status == 200:
                     return True
         except Exception:  # noqa: BLE001
@@ -220,13 +248,13 @@ def wait_health(timeout_s=240):
 
 def http_post(payload, timeout=120):
     req = urllib.request.Request(
-        f"http://127.0.0.1:{PROXY_PORT}/v1/chat/completions",
+        f"{PROXY_BASE}/v1/chat/completions",
         data=json.dumps(payload).encode(),
         headers={"Authorization": f"Bearer {MASTER_KEY}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with LOCAL_HTTP.open(req, timeout=timeout) as resp:
             return resp.status, resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8", "replace")
@@ -263,7 +291,7 @@ def run_proofs():
             {"model": alias, "messages": MESSAGES, "reasoning": False, "max_tokens": 8}
         )
         good = code == 400 and "managed-alias-effort-policy" in text and '"unsupported-type"' in text
-        ok = check(f"S1.binding-400[{alias}]", good, f"HTTP {code}: {text[:220]}")
+        ok = check(f"S1.binding-400[{alias}]", good, f"HTTP {code}: {text[:220]}") and ok
 
     # ---- strip + configured-effort proof on captured FINAL payloads ----
     # expected maps body key -> required value (None = key must be absent).
@@ -335,7 +363,7 @@ def run_proofs():
             f"output_config={body.get('output_config')!r} reasoning={body.get('reasoning')!r}",
         ) and ok
     else:
-        ok = check("S5.tasks-output_config-residual-preserved", False, f"HTTP {code}: {text[:200]}")
+        ok = check("S5.tasks-output_config-residual-preserved", False, f"HTTP {code}: {text[:200]}") and ok
 
     # S6: zai lane (top-level reasoning_effort config) — client "none" stripped,
     # configured high lands on the wire (client value "none" != "high" proves it).
@@ -358,7 +386,7 @@ def run_proofs():
     for tag, model, extra, reason in rejects:
         code, text = http_post(dict({"model": model, "messages": MESSAGES, "max_tokens": 8}, **extra))
         good = code == 400 and f'"{reason}"' in text and "managed-alias-effort-policy" in text
-        ok = check(tag, good, f"HTTP {code}: {text[:220]}")
+        ok = check(tag, good, f"HTTP {code}: {text[:220]}") and ok
 
     # S13: fully-consumable extra_body form is stripped, NOT rejected.
     ok = strip_case(
@@ -390,7 +418,7 @@ def run_proofs():
             f"captured reasoning_effort={body.get('reasoning_effort')!r} marker_keep={body.get('marker_keep')!r}",
         ) and ok
     else:
-        ok = check("S14.manual-alias-client-effort-intact", False, f"HTTP {code}: {text[:200]}")
+        ok = check("S14.manual-alias-client-effort-intact", False, f"HTTP {code}: {text[:200]}") and ok
 
     # S15: -zai twin passthrough — no policy 400, twin's own config effort.
     marker = len(CAPTURES)
@@ -405,7 +433,7 @@ def run_proofs():
             f"HTTP {code}, captured reasoning_effort={body.get('reasoning_effort')!r}",
         ) and ok
     else:
-        ok = check("S15.zai-twin-passthrough", False, f"HTTP {code}: {text[:200]}")
+        ok = check("S15.zai-twin-passthrough", False, f"HTTP {code}: {text[:200]}") and ok
 
     # S16: streaming — stripped payload, SSE response.
     marker = len(CAPTURES)
@@ -426,7 +454,7 @@ def run_proofs():
             and "reasoning_effort" not in body
             and body.get("reasoning") == {"effort": "high"}
         )
-    ok = check("S16.streaming-stripped-sse", stream_ok, f"HTTP {code}: {text[:160]}")
+    ok = check("S16.streaming-stripped-sse", stream_ok, f"HTTP {code}: {text[:160]}") and ok
 
     # S17: tool continuation — tools + tool role preserved, client effort gone.
     tool = {
@@ -463,7 +491,7 @@ def run_proofs():
             f"tools={len(body.get('tools', []))} msgs={len(body.get('messages', []))} view={effort_view(body)}",
         ) and ok
     else:
-        ok = check("S17.tool-continuation-preserved", False, f"HTTP {code}: {text[:200]}")
+        ok = check("S17.tool-continuation-preserved", False, f"HTTP {code}: {text[:200]}") and ok
 
     # S18: fallback routing — body-conditioned outage: EVERY provider-bound
     # body carrying the primary's configured xhigh fails (that substring only
@@ -493,12 +521,12 @@ def run_proofs():
         "S18.fallback-per-hop-effort",
         good,
         f"HTTP {code}, hops={len(caps)}, xhigh_hops={len(xhigh_hops)}, final_view={effort_view(final)}",
-    )
-    return ok
+    ) and ok
+    return ok and all(r["status"] == "PASS" for r in RESULTS)
 
 
-def log_evidence_checks(ok):
-    logs = sh(["docker", "logs", CONTAINER], timeout=60)
+def log_evidence_checks(ok, container_id):
+    logs = sh(["docker", "logs", container_id], timeout=60)
     combined = logs.stdout + logs.stderr
     ok = check(
         "S19.fix-hook-logs-on-real-path",
@@ -513,11 +541,13 @@ def log_evidence_checks(ok):
     return ok
 
 
-def drift_checks(ok):
-    import yaml
-
-    with open(CONFIG_YML) as fh:
-        cfg = yaml.safe_load(fh)
+def drift_checks(ok, container_id):
+    # Parse YAML in the pinned runtime, not in the host/pytest environment.
+    parsed = sh(["docker", "exec", container_id, "python", "/app/proxy_http_resources.py",
+                 "/app/config.yml"], timeout=60)
+    if parsed.returncode:
+        raise RuntimeError(f"config parse failed: {parsed.stderr[:500]}")
+    cfg = json.loads(parsed.stdout)
     entries = {e["model_name"]: e for e in cfg.get("model_list", [])}
     missing = sorted(set(MANAGED) - set(entries))
     ok = check("S21.managed-aliases-exist", not missing, f"missing={missing}") and ok
@@ -543,103 +573,107 @@ def drift_checks(ok):
 # ------------------------------- orchestration --------------------------------
 
 
-def main():
-    global PROXY_PORT
+def parse_args(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default=".", help="directory for evidence artifacts")
-    parser.add_argument("--keep", action="store_true", help="keep the scratch container")
-    parser.add_argument("--proxy-port", type=int, default=PROXY_PORT)
-    args = parser.parse_args()
-    PROXY_PORT = args.proxy_port
-    os.makedirs(args.out, exist_ok=True)
+    parser.add_argument("--out", default=".", help="parent for unique run evidence directory")
+    parser.add_argument("--keep", action="store_true", help="keep this run's owned container/network")
+    args = parser.parse_args(argv)
+    return args
 
-    print("=== T3 real-proxy-path HTTP proof —", time.strftime("%Y-%m-%dT%H:%M:%S%z"), "===")
 
-    docker_ok = sh(["docker", "info"], timeout=60).returncode == 0
-    if not check("T0.docker-available", docker_ok, "docker must be usable for the isolated scratch container"):
-        return 2
-    insp = sh(["docker", "image", "inspect", "--format", "{{.Id}}", IMAGE], timeout=60)
-    if not check(
-        "T0.pinned-image-digest",
-        insp.returncode == 0 and insp.stdout.strip() == IMAGE_DIGEST,
-        insp.stdout.strip() or insp.stderr.strip()[:200],
-    ):
-        return 2
+def write_captures(path):
+    with open(path, "w") as fh:
+        for cap in CAPTURES:
+            fh.write(json.dumps(cap) + "\n")
 
-    server, cap_port = start_capture_server()
-    cap_base = f"http://host.docker.internal:{cap_port}"
-    print(f"capture server on 127.0.0.1:{cap_port} (container-visible {cap_base})")
 
-    scratch_cfg = build_scratch_config(cap_base)
-    cfg_path = os.path.join(args.out, "t3_scratch_config.yaml")
-    with open(cfg_path, "w") as fh:
-        fh.write(scratch_cfg)
-    print("mounted files:")
-    for name in CALLBACK_FILES + ["config.yml"]:
-        path = os.path.join(HERE, name)
-        with open(path, "rb") as fh:
-            print(f"  {name} sha256={hashlib.sha256(fh.read()).hexdigest()[:16]}")
-
-    sh(["docker", "rm", "-f", CONTAINER], timeout=60)
-    docker_cmd = [
-        "docker", "run", "-d", "--name", CONTAINER,
-        "-p", f"127.0.0.1:{PROXY_PORT}:4000",
-        "--add-host", "host.docker.internal:host-gateway",
-        "-e", f"LITELLM_MASTER_KEY={MASTER_KEY}",
-        "-e", "ZAI_API_KEY=sk-dummy",
-        "-e", f"ZAI_API_BASE={cap_base}",
-        "-e", "OPENAI_API_KEY=sk-dummy",
-        "-e", "DEEPSEEK_API_KEY=sk-dummy",
-        "-e", "OPENROUTER_API_KEY=sk-dummy",
-        "-e", "GEMINI_API_KEY=sk-dummy",
-        "-e", "GROQ_API_KEY=sk-dummy",
-        "-e", "MISTRAL_API_KEY=sk-dummy",
-        "-v", f"{cfg_path}:/app/config.yaml:ro",
-    ]
-    for name in CALLBACK_FILES:
-        docker_cmd += ["-v", f"{os.path.join(HERE, name)}:/app/{name}:ro"]
-    docker_cmd += [IMAGE, "--config", "/app/config.yaml", "--port", "4000"]
-    run = sh(docker_cmd, timeout=120)
-    if run.returncode != 0:
-        check("T0.scratch-container-started", False, run.stderr.strip()[:400])
-        return 2
-
-    captures_path = os.path.join(args.out, "t3_captures.jsonl")
+def main(argv=None):
+    global PROXY_BASE
+    args = parse_args(argv)
+    RESULTS.clear()
+    CAPTURES.clear()
+    RULES.clear()
+    owner = ScratchResources()
+    out = Path(args.out).resolve() / owner.name
+    out.mkdir(parents=True, exist_ok=False)
+    captures_path = out / "t3_captures.jsonl"
+    server = thread = None
+    exit_code = 2
+    print("=== T3 real proxy HTTP proof (SUBSTITUTED Z.ai, not actual ChatGPT bridge) ===")
+    print(f"run={owner.run_id} evidence={out}")
     try:
-        healthy = wait_health()
-        if not check("T0.scratch-healthy", healthy, "health/liveliness never went green"):
-            logs = sh(["docker", "logs", CONTAINER], timeout=60)
-            print((logs.stdout + logs.stderr)[-2000:])
+        if sh(["docker", "info"], timeout=60).returncode:
+            raise RuntimeError("docker must be usable")
+        check("T0.docker-available", True)
+        insp = sh(["docker", "image", "inspect", "--format", "{{.Id}}", IMAGE], timeout=60)
+        if not check("T0.pinned-image-digest", insp.returncode == 0 and insp.stdout.strip() == IMAGE_DIGEST,
+                     insp.stdout.strip() or insp.stderr.strip()[:200]):
             return 2
-
-        ok = run_proofs()
-        ok = log_evidence_checks(ok) and ok
-        ok = drift_checks(ok) and ok
+        gateway = owner.create_network()
+        token = "sk-t3-" + secrets.token_hex(24)
+        server, thread = start_capture_server(gateway, token)
+        cap_base = f"http://{gateway}:{server.server_port}"
+        print(f"capture listener {cap_base} (internal run bridge, token + owned-source required)")
+        cfg_path = out / "t3_scratch_config.yaml"
+        cfg_path.write_text(build_scratch_config(cap_base))
+        for name in CALLBACK_FILES + ["config.yml"]:
+            path = Path(HERE) / name
+            print(f"  {name} sha256={hashlib.sha256(path.read_bytes()).hexdigest()[:16]}")
+        owner.create_container(IMAGE, cfg_path,
+                               [Path(HERE) / n for n in CALLBACK_FILES + ["proxy_http_resources.py", "config.yml"]],
+                               token, cap_base, MASTER_KEY)
+        server.allowed_source = owner.source
+        PROXY_BASE = f"http://{owner.source}:4000"
+        print(f"scratch proxy {PROXY_BASE} (internal bridge only); container={owner.container_id}")
+        if not check("T0.scratch-healthy", wait_health(), "health/liveliness"):
+            logs = sh(["docker", "logs", owner.container_id], timeout=60)
+            print((logs.stdout + logs.stderr)[-2000:])
+        else:
+            ok = run_proofs()
+            ok = log_evidence_checks(ok, owner.container_id) and ok
+            ok = drift_checks(ok, owner.container_id) and ok
+            exit_code = 0 if ok else 1
+    except Exception as exc:
+        check("T0.harness-error", False, str(exc))
     finally:
-        with open(captures_path, "w") as fh:
-            for cap in CAPTURES:
-                fh.write(json.dumps(cap) + "\n")
-        if not args.keep:
-            sh(["docker", "rm", "-f", CONTAINER], timeout=60)
-        server.shutdown()
+        # Independent guards: a failed artifact write must not leak resources.
+        try:
+            write_captures(captures_path)
+        except Exception as exc:
+            check("T0.evidence-write", False, str(exc))
+            exit_code = 2
+        try:
+            if server is not None:
+                stop_capture_server(server, thread)
+        except Exception as exc:
+            check("T0.capture-cleanup", False, str(exc))
+            exit_code = 2
+        try:
+            if not args.keep:
+                owner.cleanup()
+            else:
+                print(f"KEPT owned resources: {owner.name} {owner.network_name}")
+        except Exception as exc:
+            check("T0.resource-cleanup", False, str(exc))
+            exit_code = 2
+        failed = [r for r in RESULTS if r["status"] != "PASS"]
+        summary = {
+            "proof": "T3 substituted Z.ai real proxy HTTP; NOT actual ChatGPT bridge proof",
+            "complement": "T2 actual ChatGPT bridge interception remains complementary",
+            "image_digest": IMAGE_DIGEST, "run_id": owner.run_id,
+            "container_id": owner.container_id, "network_id": owner.network_id,
+            "kept": args.keep, "cases": len(RESULTS), "failed": len(failed),
+            "captures_written": str(captures_path), "results": RESULTS,
+            "status": "PASS" if exit_code == 0 and not failed else "FAIL",
+        }
+        print("PROXY-HTTP-PROOF-JSON:", json.dumps(summary))
+        (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    return exit_code if exit_code else (1 if failed else 0)
 
-    failed = [r for r in RESULTS if r["status"] != "PASS"]
-    summary = {
-        "proof": "enforce_effort_policy real-proxy-path HTTP (T3)",
-        "image_digest": IMAGE_DIGEST,
-        "container": CONTAINER if args.keep else "removed",
-        "cases": len(RESULTS),
-        "failed": len(failed),
-        "captures_written": captures_path,
-        "status": "PASS" if not failed else "FAIL",
-    }
-    print("PROXY-HTTP-PROOF-JSON:", json.dumps(summary))
-    return 0 if not failed else 1
 
-
-def test_proxy_http_real_boundary():
-    """pytest entry point: the whole T3 proof (docker required)."""
-    assert main() == 0
+def test_proxy_http_real_boundary(tmp_path):
+    """pytest entry point: ignore pytest's argv and isolate output paths."""
+    assert main(["--out", str(tmp_path)]) == 0
 
 
 if __name__ == "__main__":
