@@ -15,6 +15,19 @@ deployment — including every fallback hop — supply effort from its own
 config.yml entry. config.yml is the sole source of effort levels; this
 module contains NO effort level constants.
 
+CALL-TYPE CONTRACT (runtime-proven at the v1.103.2 pin, 2026-10-31)
+The REAL proxy /v1/chat/completions route presents call_type='acompletion'
+(plain str) to callbacks registered under litellm_settings.callbacks; the
+original `call_type != "completion"` gate therefore silently early-returned
+on every real-path request (zero hook log lines while sibling callbacks
+without a gate worked — see Kanban t_6ce36901 evidence: instrumented
+rc_probe callback logged call_type='acompletion' for every real-path
+probe on the pinned image). In-process callers (unit tests, the T2
+runtime proof) present 'completion'. Exactly these two completion forms
+are accepted — a litellm CallTypes enum member is normalized via .value
+if ever handed as the enum — and every other call type (text_completion,
+embeddings, moderation, ...) stays byte-untouched.
+
 SCOPE
 Exactly the ten managed aliases in MANAGED_GROUPS, matched by exact
 membership on `data["model"]` (hooks see the client-facing group name
@@ -52,10 +65,15 @@ can re-run on pre-call retry paths), never reads config.yml at runtime,
 and logs at most the alias and carrier names — never message content.
 """
 
-from typing import Literal, Optional
+from typing import Optional
 
 from fastapi import HTTPException
 from litellm.integrations.custom_logger import CustomLogger
+
+# The two completion call-type forms this hook engages on: the real proxy
+# route presents 'acompletion', in-process callers present 'completion'
+# (see CALL-TYPE CONTRACT in the module docstring).
+_COMPLETION_CALL_TYPES = ("completion", "acompletion")
 
 # Client-facing model group names under centrally enforced effort policy.
 # EXACT membership match on data["model"] only. Keep in sync with
@@ -108,14 +126,7 @@ class EffortPolicyHandler(CustomLogger):
         user_api_key_dict,
         cache,
         data: dict,
-        call_type: Literal[
-            "completion",
-            "text_completion",
-            "embeddings",
-            "image_generation",
-            "moderation",
-            "audio_transcription",
-        ],
+        call_type: str,
     ) -> Optional[dict]:
         if not isinstance(data, dict):
             return data
@@ -124,7 +135,10 @@ class EffortPolicyHandler(CustomLogger):
         # -zai twins, bare zai-*/glm-*/deepseek-*) must never match.
         if not isinstance(model, str) or model not in MANAGED_GROUPS:
             return data
-        if call_type != "completion":
+        # Real proxy path presents 'acompletion', in-process callers
+        # 'completion'; normalize an enum member via .value defensively.
+        call_type_name = getattr(call_type, "value", call_type)
+        if call_type_name not in _COMPLETION_CALL_TYPES:
             return data
 
         stripped = []

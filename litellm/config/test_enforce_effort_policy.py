@@ -13,6 +13,7 @@ Sections:
   T1.1 strip-vs-reject matrix       T1.4 idempotency
   T1.2 non-managed passthrough      T1.5 no effort-level constants (static)
   T1.3 unrelated-field preservation T1.6 config.yml drift/sync (a-e + registration)
+  T1.7 real-proxy call-type contract ('acompletion' + enum normalization)
 """
 import ast
 import asyncio
@@ -317,6 +318,69 @@ def test_other_call_types_untouched():
         before = copy.deepcopy(d)
         out = _run(d, call_type=call_type)
         assert out is d and out == before, call_type
+
+
+# ------------------------------------- T1.7 real-proxy call-type contract
+
+
+def test_real_proxy_call_type_acompletion_engages():
+    """Runtime-proven v1.103.2 contract: the REAL /v1/chat/completions route
+    presents call_type='acompletion' to litellm_settings callbacks (an
+    instrumented probe on the pinned image logged it for every real-path
+    request; the original 'completion' gate made the hook inert there).
+    The strip/reject matrix must behave identically under that form."""
+    d = _base("hermes-plan", reasoning_effort="medium", thinking=dict(THINKING))
+    out = _run(d, call_type="acompletion")
+    assert "reasoning_effort" not in out and "thinking" not in out
+
+    d = _base("hermes-execute", reasoning={"effort": "low"})
+    out = _run(d, call_type="acompletion")
+    assert "reasoning" not in out
+
+    d = _base("hermes-tasks", output_config={"effort": "high", "verifiers": {"v": 1}})
+    out = _run(d, call_type="acompletion")
+    assert out["output_config"] == {"verifiers": {"v": 1}}
+
+    # binding rejection forms under the real call_type
+    d = _base("hermes-plan", reasoning={"effort": "low", "summary": "auto"})
+    detail = _run_expect_reject(d, call_type="acompletion")
+    assert detail["carrier"] == "reasoning" and detail["reason"] == "non-effort-residual"
+
+    d = _base("hermes-execute", extra_body={"foo": 1})
+    detail = _run_expect_reject(d, call_type="acompletion")
+    assert detail["reason"] == "residual-keys"
+
+    # THE binding acceptance probe of the failed deploy (t_7ebff3fe):
+    # managed alias + reasoning:false -> policy rejection, on ALL ten aliases.
+    for m in MANAGED:
+        d = _base(m, reasoning=False)
+        detail = _run_expect_reject(d, call_type="acompletion")
+        assert detail["carrier"] == "reasoning", m
+        assert detail["reason"] == "unsupported-type", m
+        assert detail["model"] == m
+
+
+def test_enum_call_type_members_normalized():
+    """If litellm ever hands the CallTypes enum member instead of its string
+    value, .value normalization must keep completion forms working and
+    non-completion forms untouched."""
+
+    class _FakeEnumMember:
+        def __init__(self, value):
+            self.value = value
+
+    d = _base("hermes-plan", reasoning_effort="medium")
+    out = _run(d, call_type=_FakeEnumMember("acompletion"))
+    assert "reasoning_effort" not in out
+
+    d = _base("hermes-plan", reasoning_effort="medium", thinking=dict(THINKING))
+    out = _run(d, call_type=_FakeEnumMember("completion"))
+    assert "reasoning_effort" not in out and "thinking" not in out
+
+    d = _base("hermes-plan", reasoning_effort="medium")
+    before = copy.deepcopy(d)
+    out = _run(d, call_type=_FakeEnumMember("text_completion"))
+    assert out is d and out == before
 
 
 def test_non_dict_data_passthrough():
