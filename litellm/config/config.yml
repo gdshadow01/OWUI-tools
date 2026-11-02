@@ -485,6 +485,28 @@ model_list:
       output_cost_per_token: 0.0000012         # $1.20 / 1M
       cache_read_input_token_cost: 0.000000007 # $0.007 / 1M cached
 
+  # Z.ai GLM 5.3 (non-flash): text-only, 1M context, 128k max output.
+  # Prices: docs.mistral.ai/models/zai-glm-5-3, checked 2026-11-02.
+  - model_name: mistral-vibe-glm-5.3(1.4/4.4)
+    litellm_params:
+      model: mistral/zai-glm-5-3
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.0000014          # $1.40 / 1M
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000014  # $0.14 / 1M cached
+
+  # Mistral Large 4 (26.10, public preview): multimodal, 1M context.
+  # Prices: docs.mistral.ai/models/mistral-large-4-0, checked 2026-11-02.
+  - model_name: mistral-vibe-mistral-large-4(0.7/2.1)
+    litellm_params:
+      model: mistral/mistral-large-4
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.0000007          # $0.70 / 1M
+      output_cost_per_token: 0.0000021         # $2.10 / 1M
+      cache_read_input_token_cost: 0.00000007  # $0.07 / 1M cached
+
   # ==================== GOOGLE / GEMINI ====================
 
   - model_name: google-gemini-3-flash-preview
