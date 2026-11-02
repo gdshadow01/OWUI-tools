@@ -90,6 +90,7 @@ FROZEN_CALLBACK_HEAD = [
     "fallback_notify.fallback_notifier",
     "strip_thinking.strip_thinking_handler",
     "codex_session_id.codex_session_id_hook",
+    "strip_mistral_reasoning.strip_mistral_reasoning_handler",  # 2026-11-02: replayed-reasoning strip for mistral-backed groups
 ]
 
 THINKING = {"type": "enabled", "clear_thinking": False}

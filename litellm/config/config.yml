@@ -147,6 +147,14 @@ model_list:
   # Swapped to Mistral Vibe backings 2026-11-02 (ChatGPT Plus retired from the
   # primary lanes; user-directed). GLM effort enum is low/high/max — the
   # Responses-API xhigh level has no equivalent here, plan drops xhigh→high.
+  # Replayed assistant `reasoning` in history is stripped pre-routing by
+  # strip_mistral_reasoning (Mistral strict schema 422s on it; Z.ai accepts
+  # the echo, so zai-backed groups keep receiving it).
+  # Official Mistral Vibe rate limits (provider docs, checked 2026-11-02):
+  # zai-glm-5-3 32,000,000 TPM / 66.67 RPS; zai-glm-5-3-flash 10,666,666 TPM
+  # / 22.22 RPS (limit block shared with/taken from deepseek-v4-1-flash-1017:
+  # 10,000,000 TPM / 22.22 RPS). Fleet usage (~<=90k-token prompts, low RPM)
+  # is orders of magnitude below — real 429s would be an incident, not noise.
   - model_name: hermes-tasks
     litellm_params:
       model: mistral/zai-glm-5-3-flash
@@ -643,6 +651,7 @@ litellm_settings:
       - fallback_notify.fallback_notifier
       - strip_thinking.strip_thinking_handler  # pop client-sent `thinking` for zai-backed groups (litellm #31084/#31085, opencode 1.17.9 always sends it)
       - codex_session_id.codex_session_id_hook  # stable sharded session ids for chatgpt/* groups -> backend prompt-cache reuse (plan 261026)
+      - strip_mistral_reasoning.strip_mistral_reasoning_handler  # pop replayed assistant reasoning for mistral-backed groups (strict-schema 422, 2026-11-02) — must stay BEFORE enforce_effort_policy
       - enforce_effort_policy.effort_policy_handler  # managed-alias client-effort strip (plan 261031)
 
 
