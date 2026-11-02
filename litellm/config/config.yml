@@ -137,40 +137,48 @@ model_list:
 
   # ==================== HERMES VIRTUAL MODELS ====================
   # Virtual aliases for hermes profiles — swap backing model HERE, not in profiles.
-  # Primary lanes use the ChatGPT subscription on .209 only (2026-10-31).
-  # Effort uses the Responses wire shape: extra_body.reasoning.effort.
-  # Top-level reasoning_effort is dropped for these IDs by v1.103.2.
+  # Primary lanes back onto the Mistral Vibe key (MISTRAL_VIBE_KEY, .209 only;
+  # swapped off the ChatGPT Plus subscription 2026-11-02 — chatgpt-gpt-6.1-sol /
+  # chatgpt-gpt-6-luna / chatgpt-gpt-6-astra remain as manual choices).
+  # Effort carriers: GLM lanes use extra_body.reasoning_effort (chat-completions
+  # wire). Top-level reasoning_effort from clients is stripped for these IDs by
+  # enforce_effort_policy (plan 261031).
   # Keep the existing Z.ai heartbeat -> DeepSeek fallback chains unchanged.
-  # ChatGPT spend is subscription quota ($0 per-token in proxy logs).
+  # Swapped to Mistral Vibe backings 2026-11-02 (ChatGPT Plus retired from the
+  # primary lanes; user-directed). GLM effort enum is low/high/max — the
+  # Responses-API xhigh level has no equivalent here, plan drops xhigh→high.
   - model_name: hermes-tasks
     litellm_params:
-      model: chatgpt/gpt-6-luna
-      extra_body:
-        reasoning:
-          effort: high
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
       drop_params: true
-    model_info:
-      mode: responses
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
 
   - model_name: hermes-plan
     litellm_params:
-      model: chatgpt/gpt-6.1-sol
-      extra_body:
-        reasoning:
-          effort: xhigh
+      model: mistral/zai-glm-5-3
+      api_key: os.environ/MISTRAL_VIBE_KEY
       drop_params: true
-    model_info:
-      mode: responses
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.0000014          # $1.40 / 1M
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000014  # $0.14 / 1M cached
 
   - model_name: hermes-execute
     litellm_params:
-      model: chatgpt/gpt-6.1-sol
-      extra_body:
-        reasoning:
-          effort: high
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
       drop_params: true
-    model_info:
-      mode: responses
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
 
   # Legacy coding pair (opencode repinned to hermes-plan/hermes-tasks
   # 2026-10-31); kept as manual/rollback names on the main-key allowlist.
@@ -205,20 +213,22 @@ model_list:
       output_cost_per_token: 0.0000005
       cache_read_input_token_cost: 0.00000003
 
+  # Swapped to Mistral Vibe 2026-11-02: zai-glm-5-3-flash is natively
+  # multimodal (text+image in, verified live via the mistral-vibe-* twin).
+  # Effort low: vision lane needs fast turnaround; GLM enum has no medium.
+  # Rollback: openai/deepseek-flash (retired deepseek-v4-flash-vision-exp id
+  # is still answered upstream). Old deepseek pricing kept for reference:
+  # in $0.15 / out $0.60 / cache $0.003 per 1M (off-peak, 2026-10-13).
   - model_name: hermes-vision
     litellm_params:
-      model: openai/deepseek-flash
-      api_base: https://api.deepseek.com/v1
-      api_key: os.environ/DEEPSEEK_API_KEY
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
       drop_params: true
-      # no reasoning setting; backing = deepseek-flash = DeepSeek-V4.1-Flash
-      # (current id, checked 2026-10-13; retired deepseek-v4-flash-vision-exp
-      # is still answered upstream = rollback name). Pricing checked 2026-10-13
-      # (api-docs.deepseek.com/quick_start/pricing) — flash peak/off-peak
-      # schedule, encoded off-peak, see DEEPSEEK section note above.
-      input_cost_per_token: 0.00000015          # $0.15 / 1M off-peak (peak $0.30)
-      output_cost_per_token: 0.0000006          # $0.60 / 1M off-peak (peak $1.20)
-      cache_read_input_token_cost: 0.000000003  # $0.003 / 1M cache-hit (peak $0.006)
+      extra_body:
+        reasoning_effort: low
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
 
   # Virtual alias for the hermes fallback tier (fallback_providers #1 in all
   # hermes configs, via LITELLM_FALLBACK_API_KEY). Backing swappable HERE —
