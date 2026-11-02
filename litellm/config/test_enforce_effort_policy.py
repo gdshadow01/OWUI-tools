@@ -73,16 +73,16 @@ ALLOWED_HERMES_TWINS = {"hermes-plan-zai", "hermes-execute-zai", "hermes-tasks-z
 # Frozen effort-encoding map: alias -> (backing prefix, carrier path or None,
 # expected level or None). Mismatch = FAIL (drift test e).
 EXPECTED_EFFORT = {
-    "hermes-plan": ("chatgpt/", ("extra_body", "reasoning", "effort"), "xhigh"),
-    "hermes-execute": ("chatgpt/", ("extra_body", "reasoning", "effort"), "high"),
-    "hermes-tasks": ("chatgpt/", ("extra_body", "reasoning", "effort"), "high"),
+    "hermes-plan": ("mistral/", ("extra_body", "reasoning_effort"), "high"),
+    "hermes-execute": ("mistral/", ("extra_body", "reasoning_effort"), "high"),
+    "hermes-tasks": ("mistral/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-coding-plan": ("zai/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-coding-execute": ("zai/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-heartbeat-plan": ("zai/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-heartbeat-execute": ("zai/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-heartbeat-tasks": ("zai/", ("extra_body", "reasoning_effort"), "high"),
     "hermes-fallback": ("openai/", ("extra_body", "reasoning_effort"), "high"),
-    "hermes-vision": ("openai/", None, None),
+    "hermes-vision": ("mistral/", ("extra_body", "reasoning_effort"), "low"),
 }
 
 FROZEN_CALLBACK_HEAD = [

@@ -81,7 +81,9 @@ def test_shard_math():
 
 
 def test_primary_chatgpt_groups_get_session_ids():
-    for model in ("hermes-plan", "hermes-execute", "hermes-tasks"):
+    # hermes-plan/-execute/-tasks left CHATGPT_GROUPS with the 2026-11-02
+    # Mistral Vibe backing swap — now manual ChatGPT groups only.
+    for model in ("chatgpt-gpt-6.1-sol", "chatgpt-gpt-6-luna", "chatgpt-gpt-6-astra"):
         a = _run(model)
         b = _run(model)
         assert SID_RE.match(a["metadata"]["session_id"]), model
