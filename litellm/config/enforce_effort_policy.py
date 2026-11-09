@@ -32,9 +32,8 @@ SCOPE
 Exactly the ten managed aliases in MANAGED_GROUPS, matched by exact
 membership on `data["model"]` (hooks see the client-facing group name
 pre-routing). No substrings, no prefixes — the fleet has lookalike
-names. Ordinary/manual aliases and the rollback twins (hermes-plan-zai,
-hermes-execute-zai, hermes-tasks-zai) stay client-controlled and pass
-through byte-identically.
+names. Ordinary/manual aliases stay client-controlled and pass through
+byte-identically.
 
 POLICY (strip-vs-reject matrix, plan 261031 D1/D3/D4)
 - `reasoning_effort` (any value)  -> popped.

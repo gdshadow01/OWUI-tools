@@ -29,72 +29,6 @@ model_list:
 
   # ==================== Z.AI (ZHIPU AI) ====================
   # CODING API
-  - model_name: zai-glm-4.5
-    litellm_params:
-      model: zai/glm-4.5
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.5-air
-    litellm_params:
-      model: zai/glm-4.5-air
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.6
-    litellm_params:
-      model: zai/glm-4.6
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.7
-    litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 6e-07
-      output_cost_per_token: 2.2e-06
-      cache_read_input_token_cost: 1.1e-07
-
-  - model_name: zai-glm-5
-    litellm_params:
-      model: zai/glm-5
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      input_cost_per_token: 1e-06
-      output_cost_per_token: 3.2e-06
-      cache_read_input_token_cost: 2e-07
-
-  - model_name: zai-glm-5-turbo
-    litellm_params:
-      model: zai/glm-5-turbo
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      input_cost_per_token: 1.2e-06
-      output_cost_per_token: 4e-06
-      cache_read_input_token_cost: 2.4e-07
-
-  - model_name: zai-glm-5.1
-    litellm_params:
-      model: zai/glm-5.1
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 1.4e-06
-      output_cost_per_token: 4.4e-06
-      cache_read_input_token_cost: 2.6e-07
-
-  - model_name: zai-glm-5.2
-    litellm_params:
-      model: zai/glm-5.2
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 0.0000014        # $1.40 / 1M
-      output_cost_per_token: 0.0000044       # $4.40 / 1M
-      cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
-
   - model_name: zai-glm-5.3
     litellm_params:
       model: zai/glm-5.3
@@ -105,27 +39,9 @@ model_list:
       output_cost_per_token: 0.0000044       # $4.40 / 1M
       cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
 
-  # Dash-prefixed twin of the bare glm-5.3-flash below (same backing + pricing):
-  # group name NOT in litellm.model_cost → `thinking` param classified
-  # unsupported → dropped via drop_params (workaround for litellm #31084/#31085).
+  # Prefixed alias avoids registry-known bare-name parameter handling.
+  # strip_thinking also removes unsupported client thinking kwargs.
   - model_name: zai-glm-5.3-flash
-    litellm_params:
-      model: zai/glm-5.3-flash
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 0.00000015       # $0.15 / 1M (promo $0.075 until 2026-09-09)
-      output_cost_per_token: 0.0000005       # $0.50 / 1M (promo $0.25)
-      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached (promo $0.015)
-
-  # GLM-5.3-Flash: natively multimodal (text+image in), 1M ctx, released 2026-08-26.
-  # model_name kept bare for OpenWebUI (pins this id; never sends `thinking` →
-  # unaffected). Registry-known name → `thinking` forwarded as top-level kwarg →
-  # ZaiException under litellm v1.93.0 (refs litellm #31084 merged, #31085
-  # open) — do NOT pin opencode/hermes here.
-  # Pricing = LIST prices (docs.z.ai/guides/overview/pricing, 2026-08-27); 50% promo
-  # runs until 2026-09-09 (UTC+8) — list prices encoded so spend logs stay correct after.
-  - model_name: glm-5.3-flash
     litellm_params:
       model: zai/glm-5.3-flash
       api_key: os.environ/ZAI_API_KEY
@@ -298,118 +214,11 @@ model_list:
       output_cost_per_token: 0.0000005
       cache_read_input_token_cost: 0.00000003
 
-  # Compatibility twins retained after the ChatGPT routing trial ended.
-  # To restore a primary, COPY the complete params block; aliases are not upstream IDs.
-  # Pre-trial state also preserved as git tag chatgpt-trial-pre (commit 8273169).
-  - model_name: hermes-plan-zai
-    litellm_params:
-      model: zai/glm-5.3
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.0000014
-      output_cost_per_token: 0.0000044
-      cache_read_input_token_cost: 0.00000026
-
-  - model_name: hermes-execute-zai
-    litellm_params:
-      model: zai/glm-5.3-flash
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.00000015
-      output_cost_per_token: 0.0000005
-      cache_read_input_token_cost: 0.00000003
-
-  - model_name: hermes-tasks-zai
-    litellm_params:
-      model: zai/glm-5.3-flash
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      extra_body:
-        reasoning_effort: high
-      input_cost_per_token: 0.00000015
-      output_cost_per_token: 0.0000005
-      cache_read_input_token_cost: 0.00000003
-
   # ==================== OPENROUTER ====================
-
-  - model_name: flux-openrouter
-    litellm_params:
-      model: openrouter/black-forest-labs/flux.2-klein-4b
-      api_key: os.environ/OPENROUTER_API_KEY
-      drop_params: true
-      extra_body:
-        modalities: ["image"]
 
   - model_name: openrouter-deepseek-v4-flash(0.14/0.28)
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-flash
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-deepseek-v4-pro(1.74/3.48)
-    litellm_params:
-      model: openrouter/deepseek/deepseek-v4-pro
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-gpt-oss-120b(0.039/0.19)
-    litellm_params:
-      model: openrouter/openai/gpt-oss-120b
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-grok-4.1-fast(0.2/0.5)
-    litellm_params:
-      model: openrouter/x-ai/grok-4.1-fast
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-kimi-K2.5(0.45/2.20)
-    litellm_params:
-      model: openrouter/moonshotai/kimi-k2.5
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-kimi-K2.6(0.7448/4.655)
-    litellm_params:
-      model: openrouter/moonshotai/kimi-k2.6
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-minimax-m2.7(0.3/1.20)
-    litellm_params:
-      model: openrouter/minimax/minimax-m2.7
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-xiaomi-mimo-v2.5(0.4/2)
-    litellm_params:
-      model: openrouter/xiaomi/mimo-v2.5
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-xiaomi-mimo-v2.5-pro(1/3)
-    litellm_params:
-      model: openrouter/xiaomi/mimo-v2.5-pro
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-z-ai/glm-4.7-flash(0.06/0.4)
-    litellm_params:
-      model: openrouter/z-ai/glm-4.7-flash
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-z-ai/glm-5.1(1.05/3.50)
-    litellm_params:
-      model: openrouter/z-ai/glm-5.1
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-zai-glm-4.5-air-free
-    litellm_params:
-      model: openrouter/z-ai/glm-4.5-air:free
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-zai-glm-4.7(0.38/1.98)
-    litellm_params:
-      model: openrouter/z-ai/glm-4.7
       api_key: os.environ/OPENROUTER_API_KEY
 
   # ==================== DEEPSEEK ====================
@@ -438,44 +247,11 @@ model_list:
       output_cost_per_token: 0.00000198         # $1.98 / 1M off-peak (peak $3.96)
       cache_read_input_token_cost: 0.000000011  # $0.011 / 1M cache-hit (peak $0.022)
 
-  # Experimental vision model (docs: https://api-docs.deepseek.com/guides/vision).
-  # Routed via the openai/ provider, NOT deepseek/: litellm 1.93.0's deepseek
-  # transformation flattens message content lists to plain strings (drops image
-  # parts, vision arrives empty); DeepSeek's API is OpenAI-compatible, and the
-  # openai/ path passes content-part lists through unchanged.
-  # Pricing = deepseek-v4-flash-vision-exp schedule (2026-08-31): same peak/
-  # off-peak split as v4-flash — off-peak $0.22 in / $0.66 out, peak 2x, cache-hit
-  # $0.007. Encoded off-peak (scheduled vision jobs target off-peak; litellm
-  # cannot vary price by time of day).
-  - model_name: deepseek-v4-flash-vision-exp
-    litellm_params:
-      model: openai/deepseek-v4-flash-vision-exp
-      api_base: https://api.deepseek.com/v1
-      api_key: os.environ/DEEPSEEK_API_KEY
-      input_cost_per_token: 0.00000022          # $0.22 / 1M off-peak (peak $0.44)
-      output_cost_per_token: 0.00000066         # $0.66 / 1M off-peak (peak $1.32)
-      cache_read_input_token_cost: 0.000000007  # $0.007 / 1M cache-hit (peak $0.014)
-
   # ==================== MISTRAL AI ====================
-
-  - model_name: mistral-mistral-small(0.1/0.3)
-    litellm_params:
-      model: mistral/mistral-small-latest
-      api_key: os.environ/MISTRAL_API_KEY
 
   - model_name: mistral-mistral-large(0.5/1.5)
     litellm_params:
       model: mistral/mistral-large-latest
-      api_key: os.environ/MISTRAL_API_KEY
-
-  - model_name: mistral-mistral-codestral(0.3/0.9)
-    litellm_params:
-      model: mistral/codestral-latest
-      api_key: os.environ/MISTRAL_API_KEY
-
-  - model_name: mistral-mistral-medium(0.4/2)
-    litellm_params:
-      model: mistral/mistral-medium-latest
       api_key: os.environ/MISTRAL_API_KEY
 
   # --- Mistral "Vibe" key (MISTRAL_VIBE_KEY, separate allowance/key from
@@ -536,28 +312,6 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.1-pro-preview
       api_key: os.environ/GEMINI_API_KEY
-
-  # ==================== GROQ ====================
-
-  - model_name: groq-compound
-    litellm_params:
-      model: groq/groq/compound
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-gpt-oss-120b
-    litellm_params:
-      model: groq/openai/gpt-oss-120b
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-whisper-large-v3
-    litellm_params:
-      model: groq/whisper-large-v3
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-whisper-large-v3-turbo
-    litellm_params:
-      model: groq/whisper-large-v3-turbo
-      api_key: os.environ/GROQ_API_KEY
 
   # ==================== ALIBABA DASHSCOPE (QWEN) ====================
 

@@ -72,7 +72,7 @@ def test_preserves_non_zai_groups():
 
 
 def test_no_thinking_is_noop():
-    d = _base("zai-glm-5.2", thinking=False)
+    d = _base("zai-glm-5.3", thinking=False)
     assert _run(d) == d
 
 

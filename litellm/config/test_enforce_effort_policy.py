@@ -65,11 +65,6 @@ MANAGED = [
     "hermes-fallback",
 ]
 
-# The only hermes-* aliases allowed OUTSIDE MANAGED_GROUPS (rollback twins,
-# client-controlled). Any other hermes-* model_name in config.yml must FAIL
-# drift test_hermes_names_classified until consciously classified.
-ALLOWED_HERMES_TWINS = {"hermes-plan-zai", "hermes-execute-zai", "hermes-tasks-zai"}
-
 # Frozen effort-encoding map: alias -> (backing prefix, carrier path or None,
 # expected level or None). Mismatch = FAIL (drift test e).
 EXPECTED_EFFORT = {
@@ -515,11 +510,10 @@ def test_managed_aliases_exist_in_config():
 def test_hermes_names_classified():
     cfg = _load_cfg()
     hermes_names = {n for n in _entries(cfg) if n.startswith("hermes-")}
-    allowed = set(MANAGED) | ALLOWED_HERMES_TWINS
-    unclassified = sorted(hermes_names - allowed)
+    unclassified = sorted(hermes_names - set(MANAGED))
     assert not unclassified, (
         f"new hermes-* alias(es) in config.yml not classified in "
-        f"enforce_effort_policy.MANAGED_GROUPS or the -zai twin set: {unclassified}"
+        f"enforce_effort_policy.MANAGED_GROUPS: {unclassified}"
     )
 
 

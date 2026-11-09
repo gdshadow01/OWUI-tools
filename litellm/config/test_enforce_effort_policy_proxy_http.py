@@ -89,7 +89,6 @@ MANAGED = [
     "hermes-vision",
     "hermes-fallback",
 ]
-ALLOWED_TWINS = {"hermes-plan-zai", "hermes-execute-zai", "hermes-tasks-zai"}
 THINKING_OPENCODE = {"type": "enabled", "clear_thinking": False}
 MESSAGES = [{"role": "user", "content": "Reply with the single word: ok"}]
 
@@ -420,20 +419,25 @@ def run_proofs():
     else:
         ok = check("S14.manual-alias-client-effort-intact", False, f"HTTP {code}: {text[:200]}") and ok
 
-    # S15: -zai twin passthrough — no policy 400, twin's own config effort.
+    # S15: remaining manual flash alias also bypasses managed policy.
     marker = len(CAPTURES)
     code, text = http_post(
-        {"model": "hermes-plan-zai", "messages": MESSAGES, "max_tokens": 16, "reasoning": False}
+        {
+            "model": "zai-glm-5.3-flash",
+            "messages": MESSAGES,
+            "max_tokens": 16,
+            "extra_body": {"marker_keep": 1, "reasoning_effort": "low"},
+        }
     )
     if code == 200 and captured_since(marker):
         body = captured_since(marker)[-1]["body"]
         ok = check(
-            "S15.zai-twin-passthrough",
-            body.get("reasoning_effort") == "high" and "managed-alias-effort-policy" not in json.dumps(body),
+            "S15.manual-flash-passthrough",
+            body.get("reasoning_effort") == "low" and body.get("marker_keep") == 1,
             f"HTTP {code}, captured reasoning_effort={body.get('reasoning_effort')!r}",
         ) and ok
     else:
-        ok = check("S15.zai-twin-passthrough", False, f"HTTP {code}: {text[:200]}") and ok
+        ok = check("S15.manual-flash-passthrough", False, f"HTTP {code}: {text[:200]}") and ok
 
     # S16: streaming — stripped payload, SSE response.
     marker = len(CAPTURES)
@@ -552,7 +556,7 @@ def drift_checks(ok, container_id):
     missing = sorted(set(MANAGED) - set(entries))
     ok = check("S21.managed-aliases-exist", not missing, f"missing={missing}") and ok
     unclassified = sorted(
-        n for n in entries if n.startswith("hermes-") and n not in set(MANAGED) | ALLOWED_TWINS
+        n for n in entries if n.startswith("hermes-") and n not in set(MANAGED)
     )
     ok = check("S22.hermes-names-classified", not unclassified, f"unclassified={unclassified}") and ok
     callbacks = cfg.get("litellm_settings", {}).get("callbacks", [])

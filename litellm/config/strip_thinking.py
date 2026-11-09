@@ -42,20 +42,8 @@ class StripThinkingHandler(CustomLogger):
     # litellm/config/config.yml (`model: zai/...` deployments).
     ZAI_GROUPS = frozenset(
         {
-            "zai-glm-4.5",
-            "zai-glm-4.5-air",
-            "zai-glm-4.6",
-            "zai-glm-4.7",
-            "zai-glm-5",
-            "zai-glm-5-turbo",
-            "zai-glm-5.1",
-            "zai-glm-5.2",
             "zai-glm-5.3",
             "zai-glm-5.3-flash",
-            "glm-5.3-flash",
-            "hermes-plan-zai",
-            "hermes-execute-zai",
-            "hermes-tasks-zai",
             "hermes-coding-plan",
             "hermes-coding-execute",
             "hermes-heartbeat-plan",

@@ -91,7 +91,7 @@ EXPECTED_ZAI_HIGH = {
     "hermes-heartbeat-tasks": "glm-5.3-flash",
 }
 EXPECTED_FALLBACK = ("deepseek-flash", "high")
-NON_MANAGED_LANES = ("zai-glm-5.3", "hermes-plan-zai", "deepseek-v4-flash(0.14/0.28)")
+NON_MANAGED_LANES = ("zai-glm-5.3", "zai-glm-5.3-flash", "deepseek-v4-flash(0.14/0.28)")
 
 BASE_MESSAGES = [
     {"role": "system", "content": "You are a test agent. Be terse."},

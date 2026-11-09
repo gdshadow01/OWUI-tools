@@ -66,11 +66,8 @@ class StripMistralReasoningHandler(CustomLogger):
             "mistral-vibe-deepseek-v4.1-flash(0.3/1.2)",
             "mistral-vibe-glm-5.3(1.4/4.4)",
             "mistral-vibe-mistral-large-4(0.7/2.1)",
-            # legacy direct-Mistral twins (same api.mistral.ai strict schema):
+            # Direct Mistral key (same api.mistral.ai strict schema):
             "mistral-mistral-large(0.5/1.5)",
-            "mistral-mistral-codestral(0.3/0.9)",
-            "mistral-mistral-small(0.1/0.3)",
-            "mistral-mistral-medium(0.4/2)",
         }
     )
 
