@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Changes here won't trigger a reinstall of dependencies
 COPY retrieval_api.py ./
 COPY retrieval_engine.py ./
+COPY reranker.py ./
 COPY openapi_routes.py ./
 COPY main.py ./
 # COPY .env ./

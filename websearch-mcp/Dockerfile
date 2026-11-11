@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY server.py .
+COPY server.py reddit_backend.py ./
 
 # Expose MCP Streamable HTTP port
 EXPOSE 9200

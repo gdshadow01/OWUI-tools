@@ -16,5 +16,8 @@ password
 password.*
 *.password
 
-# Downloaded attachments / data
+# Downloaded attachments / data (legacy; /data volume removed 2026-09)
 data/
+
+# Offline smoke-test m2dir store (populated by scripts/smoke_attachments.py)
+tests/fixtures/store/

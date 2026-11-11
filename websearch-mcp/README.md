@@ -9,6 +9,7 @@ Uses the MCP Streamable HTTP protocol (spec version 2025-03-26) — the current 
 Exposes three MCP tools that Open WebUI can call directly:
 
 - **web_search** — queries SearXNG, returns ranked results with title, URL, and snippet
+- **search_reddit** — native Reddit search via public feeds (anonymous, no API key)
 - **fetch_page** — retrieves a URL, strips boilerplate, returns clean text content
 - **health_check** — reports backend availability (which search engines are configured)
 
@@ -42,6 +43,19 @@ Same three-stage fallback as the OpenAPI version:
 
 Optional **Apache Tika** integration for PDF/Office documents (set `TIKA_SERVER_URL`).
 
+## Reddit
+
+`fetch_page` transparently serves reddit.com thread/subreddit/user URLs from
+Reddit's public Atom feeds (anonymous — no API key, no login), returning the
+post plus up to ~100 comments as markdown. Reddit's HTML/JSON endpoints are
+blocked from datacentre IPs, so this is the only reliable server-side route;
+a `"via": "reddit-rss"` field marks these responses.
+
+Limits: anonymous feeds allow ~1 request/minute/IP shared across all reddit
+calls (fetch_page + search_reddit), served through a TTL cache. On a rate
+limit you get `{"error": ..., "retry_after": N}` — wait N seconds and retry.
+No scores or comment nesting (anonymous feeds don't carry them).
+
 ## Configuration
 
 Copy `.env.example` to `.env` and adjust. Key variables:
@@ -56,6 +70,9 @@ Copy `.env.example` to `.env` and adjust. Key variables:
 | `SEARXNG_TIMEOUT` | `15` | SearXNG query timeout |
 | `MCP_HOST` | `0.0.0.0` | Server bind address |
 | `MCP_PORT` | `9200` | Server bind port |
+| `USE_REDDIT_BACKEND` | `yes` | Serve reddit URLs via .rss feeds |
+| `REDDIT_MIN_INTERVAL` | `65` | Seconds between outbound reddit feed requests |
+| `REDDIT_CACHE_TTL` | `600` | Feed cache TTL in seconds |
 
 ## Open WebUI setup
 

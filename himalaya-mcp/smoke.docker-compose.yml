@@ -1,0 +1,19 @@
+# Deterministic offline e2e smoke stack — no real account, no external network.
+# Run via scripts/smoke_attachments.py (builds fixture, populates m2dir store,
+# brings this file up on port 9202, asserts, tears down).
+services:
+  himalaya-mcp-smoke:
+    build: .
+    image: owui-himalaya-smoke:latest
+    container_name: himalaya-mcp-smoke
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=9201
+      - HIMALAYA_CONFIG_FILE=/config-smoke/config.toml
+      # Tight cap so the oversized gross.pdf fixture is refused (A3/A5)
+      - ATTACHMENT_MAX_BYTES=1000
+    ports:
+      - "9202:9201"
+    volumes:
+      - ./tests/fixtures/store:/store
+      - ./config-smoke:/config-smoke:ro

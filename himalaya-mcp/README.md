@@ -4,7 +4,7 @@ Read + draft-only email MCP server via Streamable HTTP transport. Wraps the [him
 
 ## What it does
 
-- **Read** email: list envelopes, read bodies, export raw MIME, download attachments
+- **Read** email: list envelopes, read bodies, export raw MIME, list/export attachments (policy-guarded, base64)
 - **Draft** email: generate MIME (RFC 5322) skeletons, save replies/forwards to Drafts via IMAP APPEND
 - **Flags**: add/remove `\Seen`, `\Flagged`, `\Answered`
 - **NO send** — structurally impossible at code, config, and transport levels
@@ -56,11 +56,42 @@ Export raw MIME (for ICS/calendar attachment parsing).
 
 Returns JSON with `raw_mime`, `mime_length`. Reads the raw RFC 5322 MIME directly from stdout (no temp dir involved).
 
-#### `attachment_download(id, folder?, account?)`
-Download all attachments for a message to the data directory (`/data` volume).
+#### `attachment_list(id, folder?, include_inline?, account?)`
+List attachments of a message with export-policy verdicts.
+- `id` (str): Message ID (from `envelope_list`).
+- `folder` (str, default `"INBOX"`): Mailbox.
+- `include_inline` (bool, default `false`): Also list inline (`cid:`) parts. Inline parts are exportable under the same policy when their type is whitelisted.
+- `account` (str, optional): Account name.
+
+Returns `{id, folder, attachments: [...]}` where each entry carries the himalaya
+fields (`id`, `filename`, `mime`, `size`, `inline`) plus:
+- `exportable` (bool): whether `attachment_export` will serve it.
+- `block_reason` (str|null): why not, e.g. `"calendar (ICS) content …"`, `"extension 'exe' not in whitelist"`, `"size N exceeds cap M bytes"`.
+
+Peek-safe: `attachment list` never sets `\Seen` (verified on himalaya v2.0.0).
+
+#### `attachment_export(id, attachment_id, folder?, account?)`
+Export ONE attachment as base64 JSON. Nothing persists server-side — the file
+is downloaded into a fresh temp dir, read, base64-encoded, and the temp dir is
+deleted.
 - `id` (str): Message ID.
+- `attachment_id` (int): 1-based attachment id from `attachment_list` (ids count inline parts when listed with `include_inline`).
 - `folder` (str, default `"INBOX"`): Mailbox.
 - `account` (str, optional): Account name.
+
+Success returns `{id, folder, attachment_id, filename, mime, size, encoding: "base64", content_b64}`.
+Refusals return `{"error": "attachment not exported: <reason>", "attachment": <entry>, "stays_on_server": true}` — the attachment is never deleted or moved; it stays on the mail server.
+
+Peek-safe: `attachment download` never sets `\Seen` (verified on himalaya v2.0.0).
+
+**Export policy** (same whitelist semantics as the mail-checker wrapper; enforced server-side, not client-side):
+
+1. **Calendar first**: ICS/calendar content (`text/calendar`, `application/ics`, or `.ics` filename) is NEVER exported as a file. Use `message_export` for the raw MIME and parse calendar data client-side.
+2. **Extension whitelist** (primary gate): `pdf`; `doc docx docm rtf odt`; `xls xlsx xlsm ods`; `ppt pptx pptm odp`; `png jpg jpeg gif webp bmp tif tiff heic avif`. Anything else — exe, archives, scripts, unknown — is refused.
+3. **MIME deny-list**: declared executables/archives/scripts (`application/x-msdownload`, `application/zip`, `application/x-sh`, …), `image/svg+xml`, `text/html` are refused regardless of extension. `application/octet-stream` is NOT denied (legacy Office types arrive that way; extension governs).
+4. **Group consistency**: a concrete declared MIME whose coarse group (pdf/word/excel/ppt/odf/image) conflicts with the extension's group is refused (e.g. `.png` declared `application/pdf`). Lazy senders within a group stay exportable (docx declared `application/msword`).
+5. **Size cap**: `ATTACHMENT_MAX_BYTES` (default 20 MB, wrapper parity). Listed size checked pre-download; on-disk size re-checked post-download (drift → error). Refuse-over, never truncate.
+6. **Markup sniff** (post-download): if the payload starts (after BOM/whitespace) with `<` and contains `<svg`, `<?xml`, or `<!doctype` → refused as an SVG/XML/HTML masquerade. No whitelisted type legitimately starts with `<`.
 
 ### Draft tools
 
@@ -130,14 +161,15 @@ Example output:
 | `DEFAULT_ACCOUNT` | *(empty)* | Account name for tools without explicit `account` arg. When empty, himalaya auto-selects the account with `default = true` in config.toml. |
 | `DRAFTS_FOLDER` | `Drafts` | IMAP folder for saving drafts |
 | `TRASH_FOLDER` | `Trash` | Destination folder for `draft_delete`'s move-to-Trash |
-| `DATA_DIR` | `/data` | Attachment download directory |
+| `ATTACHMENT_MAX_BYTES` | `20971520` (20 MB) | Attachment export cap. Refuse-over, never truncate. Wrapper parity (`check-mail.py MAX_ATTACHMENT_BYTES`). |
+| `ATTACHMENT_DL_TIMEOUT` | `120` | Himalaya subprocess timeout in seconds for attachment download (big payloads, slow servers) |
 
 ### Config file (`config.toml`)
 
 Mount a `config.toml` at `HIMALAYA_CONFIG_DIR`. See `config/config.example.toml` for the template. Key requirements (himalaya v2 flat `imap.*` notation):
 
 - **IMAP only** — no `smtp.*` section
-- Account name must match `DEFAULT_ACCOUNT` (default: `main`)
+- Mark exactly one account `default = true` (used when `DEFAULT_ACCOUNT` is empty and no explicit `account` arg is passed)
 - Password via `imap.sasl.plain.password.raw` (inline) or `imap.sasl.plain.password.command` (command like `pass show mail/example`)
 
 Example (`config.example.toml`):
@@ -146,7 +178,6 @@ Example (`config.example.toml`):
 default = true
 email = "user@example.com"
 display-name = "Your Name"
-downloads-dir = "/data"
 imap.server = "imap.example.com"
 imap.sasl.plain.username = "user@example.com"
 imap.sasl.plain.password.raw = "YOUR_PASSWORD_HERE"
@@ -169,8 +200,8 @@ docker network create owui-tools  # only if it doesn't exist yet
 ```bash
 cd himalaya-mcp/
 
-# 1. Create config and data directories
-mkdir -p config data
+# 1. Create config directory
+mkdir -p config
 
 # 2. Copy and edit config
 cp config.example.toml config/config.toml
@@ -232,31 +263,38 @@ mcp_servers:
 │  └─────────────┘   └────────┬────────┘  │
 │                             │            │
 │  ┌─────────────┐   ┌────────▼────────┐  │
-│  │ /data        │   │ /config          │  │
-│  │ (attachments)│   │ (config.toml:ro) │  │
+│  │ /config      │   │ tempdir (per    │  │
+│  │ (config.toml │   │ attachment      │  │
+│  │  :ro)        │   │ export; deleted │  │
+│  │              │   │ after b64 read) │  │
 │  └─────────────┘   └─────────────────┘  │
 └─────────────────────────────────────────┘
-         │                        │
-    owui-tools network      host mount (read-only)
+
+`/config` is a read-only host mount (`./config/`); attachment exports
+never touch a persistent volume.
 ```
 
 - **Transport**: MCP Streamable HTTP (protocol 2025-03-26)
 - **Port**: 9201 (bound to `127.0.0.1` on host)
 - **Network**: `owui-tools` (external, shared with other OWUI-tools)
 - **Config**: mounted read-only from `./config/`
-- **Data**: `./data/` for attachment downloads
+- **Attachments**: exported via base64 JSON from a per-call temp dir — no persistent `/data` volume anymore
 
 ## File structure
 
 ```
 himalaya-mcp/
 ├── server.py              # FastMCP server — 12 tools
+├── attachments.py         # attachment whitelist/policy (pure functions, unit-tested)
+├── tests/                 # pytest unit matrix (attachments.py)
+├── scripts/smoke_attachments.py  # offline m2dir e2e smoke + --live mode
+├── smoke.docker-compose.yml     # offline smoke stack (port 9202)
 ├── Dockerfile             # python:3.13-slim + himalaya v2.0.0 static binary
-├── docker-compose.yml     # port 9201, owui-tools network, config/data volumes
+├── docker-compose.yml     # port 9201, owui-tools network, config volume
 ├── .env.example           # environment variable template
-├── requirements.txt       # mcp>=1.9.0, uvicorn[standard], starlette
+├── requirements.txt       # mcp>=1.9.0, uvicorn[standard], starlette (major-capped)
 ├── config.example.toml    # IMAP-only config template (no SMTP)
-├── .gitignore             # ignores config/, data/, .env
+├── .gitignore             # ignores config/, .env, smoke store
 └── README.md              # this file
 ```
 

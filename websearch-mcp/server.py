@@ -35,6 +35,12 @@ except ImportError:
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
+import reddit_backend
+from reddit_backend import (SEARCH_SORTS, TIME_RANGES, parse_reddit_url,
+                            search_feeds)
+from reddit_backend import fetch_reddit as reddit_fetch
+from reddit_backend import gate_status as reddit_gate_status
+
 # ── Configuration ────────────────────────────────────────────────────────────
 
 SEARXNG_URL = os.getenv("SEARXNG_URL", "http://searxng:8040")
@@ -54,6 +60,11 @@ MCP_PORT = int(os.getenv("MCP_PORT", "9200"))
 USE_BROWSER_TIER = os.getenv("USE_BROWSER_TIER", "yes").lower() == "yes"
 BROWSER_CDP_URL = os.getenv("BROWSER_CDP_URL", "http://browser:9222")
 ESCALATION_TIMEOUT = int(os.getenv("ESCALATION_TIMEOUT", "45"))
+
+# Reddit .rss backend — anonymous Atom feeds (see reddit_backend.py docstring)
+USE_REDDIT_BACKEND = os.getenv("USE_REDDIT_BACKEND", "yes").lower() == "yes"
+REDDIT_MIN_INTERVAL = float(os.getenv("REDDIT_MIN_INTERVAL", "65"))
+REDDIT_CACHE_TTL = float(os.getenv("REDDIT_CACHE_TTL", "600"))
 
 _EMPTY_EXTRACT_CHARS = 500  # cleaned text shorter than this counts as an empty extraction
 _SCRIPT_TAG_THRESHOLD = 5  # raw HTML with >= N "<script" occurrences counts as script-heavy
@@ -476,6 +487,12 @@ async def _fetch_page(url: str, max_length: int = PAGE_MAX_CONTENT_LENGTH, inclu
             "truncated": len(content) > max_length,
         }
 
+    if USE_REDDIT_BACKEND:
+        parsed = parse_reddit_url(url)
+        if parsed is not None:
+            return await reddit_fetch(parsed, url, max_length,
+                                      REDDIT_MIN_INTERVAL, REDDIT_CACHE_TTL)
+
     html = None
     last_error = None
     fatal_error = False
@@ -697,6 +714,45 @@ async def fetch_page(
 
 
 @mcp.tool()
+async def search_reddit(
+    query: str,
+    subreddit: Optional[str] = None,
+    sort: str = "relevance",
+    time_range: str = "all",
+    num_results: int = 10,
+) -> str:
+    """Search Reddit posts natively via Reddit's public feeds. Works from
+    server IPs where reddit.com pages are blocked. Rate-limited to ~1 request
+    per minute for ALL reddit tools combined; on a rate-limit error, wait
+    retry_after seconds and call again.
+
+    Args:
+        query: Search query — be specific.
+        subreddit: Restrict search to one subreddit (optional).
+        sort: result order — relevance | new | top | comments.
+        time_range: hour | day | week | month | year | all.
+        num_results: Max results (1-25, default 10).
+    """
+    import json
+
+    if sort not in SEARCH_SORTS or time_range not in TIME_RANGES:
+        return json.dumps({"error": f"sort must be one of {sorted(SEARCH_SORTS)}; "
+                                    f"time_range one of {sorted(TIME_RANGES)}"})
+    num_results = max(1, min(25, num_results))
+    entries, err = await search_feeds(query, subreddit, sort, time_range, num_results,
+                                      REDDIT_MIN_INTERVAL, REDDIT_CACHE_TTL)
+    if err is not None:
+        return json.dumps(err)
+    results = [{
+        "title": e["title"], "url": e["url"], "author": e["author"],
+        "created": e["created"], "snippet": e["body"][:300],
+    } for e in entries[:num_results]]
+    return json.dumps({"query": query, "subreddit": subreddit,
+                       "total_results": len(results), "results": results},
+                      ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
 async def health_check() -> str:
     """Check if the web search MCP server is healthy and which backends are available."""
     import json
@@ -724,11 +780,14 @@ async def health_check() -> str:
             except Exception:
                 pass
 
+    reddit = reddit_gate_status() if USE_REDDIT_BACKEND else {"enabled": False}
+
     status = {
         "status": "ok",
         "available_engines": available,
         "searxng_reachable": searxng_ok,
         "tika_enabled": USE_TIKA,
+        "reddit_rss": reddit,
         "config": {
             "SEARXNG_URL": SEARXNG_URL,
             "USE_SEARXNG_SEARCH": USE_SEARXNG_SEARCH,

@@ -1,0 +1,26 @@
+services:
+  ibr-feed:
+    build: .
+    container_name: ibr-feed
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      IBR_REPO_URL: ${IBR_REPO_URL:-https://github.com/gdshadow01/Vergaberechtsprechung.git}
+      IBR_BRANCH: ${IBR_BRANCH:-main}
+      IBR_SYNC_INTERVAL: ${IBR_SYNC_INTERVAL:-900}
+    volumes:
+      - ibr-feed-data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+volumes:
+  ibr-feed-data:

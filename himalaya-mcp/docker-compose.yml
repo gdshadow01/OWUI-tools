@@ -12,10 +12,8 @@ services:
       - DEFAULT_ACCOUNT=${DEFAULT_ACCOUNT:-}
       - DRAFTS_FOLDER=${DRAFTS_FOLDER:-Drafts}
       - TRASH_FOLDER=${TRASH_FOLDER:-Trash}
-      - DATA_DIR=/data
     volumes:
       - ./config:/config:ro
-      - ./data:/data
     networks:
       - ollama-tools
     logging:

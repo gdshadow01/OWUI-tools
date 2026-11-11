@@ -6,15 +6,19 @@ SMTP deliberately absent from config — structural enforcement.
 """
 
 import asyncio
+import base64
 import json
 import os
 import sys
+import tempfile
 import email.message
 import email.utils
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+
+from attachments import ALLOWED_EXTS, classify_attachment, looks_like_markup
 
 HIMALAYA_BIN = os.getenv("HIMALAYA_BIN", "himalaya")
 HIMALAYA_CONFIG_DIR = os.getenv("HIMALAYA_CONFIG_DIR", "/config")
@@ -31,7 +35,8 @@ HIMALAYA_CONFIG_FILE = os.getenv("HIMALAYA_CONFIG_FILE") or os.path.join(
 DEFAULT_ACCOUNT = os.getenv("DEFAULT_ACCOUNT", "")
 DRAFTS_FOLDER = os.getenv("DRAFTS_FOLDER", "Drafts")
 TRASH_FOLDER = os.getenv("TRASH_FOLDER", "Trash")
-DATA_DIR = os.getenv("DATA_DIR", "/data")
+ATTACHMENT_DL_TIMEOUT = int(os.getenv("ATTACHMENT_DL_TIMEOUT", "120"))
+MAX_EXPORT_BYTES = int(os.getenv("ATTACHMENT_MAX_BYTES", str(20 * 1024 * 1024)))
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "9201"))
 
@@ -89,7 +94,7 @@ _validate_config_path()
 mcp = FastMCP("himalaya", json_response=True, transport_security=_transport_security)
 
 
-async def _run(*args, stdin_data: Optional[str] = None, as_json: bool = True) -> dict:
+async def _run(*args, stdin_data: Optional[str] = None, as_json: bool = True, timeout: float = 30) -> dict:
     """Run himalaya once; return parsed JSON (as_json=True) or raw stdout.
 
     v2 uses --json (not --output json) and has no --quiet. Global flags go
@@ -109,11 +114,11 @@ async def _run(*args, stdin_data: Optional[str] = None, as_json: bool = True) ->
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(
                 stdin_data.encode("utf-8") if stdin_data is not None else None),
-            timeout=30)
+            timeout=timeout)
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
-        return {"error": "himalaya command timed out after 30 seconds", "returncode": -1}
+        return {"error": f"himalaya command timed out after {timeout:g} seconds", "returncode": -1}
     if proc.returncode != 0:
         if as_json:
             try:
@@ -138,9 +143,9 @@ async def _run(*args, stdin_data: Optional[str] = None, as_json: bool = True) ->
     return result
 
 
-async def _himalaya(*args, stdin_data: Optional[str] = None) -> dict:
+async def _himalaya(*args, stdin_data: Optional[str] = None, timeout: float = 30) -> dict:
     """Run himalaya with --json and unwrap single-key list wrappers."""
-    return await _run(*args, stdin_data=stdin_data, as_json=True)
+    return await _run(*args, stdin_data=stdin_data, as_json=True, timeout=timeout)
 
 
 async def _himalaya_raw(*args) -> dict:
@@ -229,14 +234,112 @@ async def message_export(
 
 
 @mcp.tool()
-async def attachment_download(
+async def attachment_list(
     id: str,
+    folder: str = "INBOX",
+    include_inline: bool = False,
+    account: Optional[str] = None,
+) -> str:
+    """List attachments of a message with export-policy verdicts.
+
+    Peek-safe: attachment list never sets \\Seen (verified on himalaya v2.0.0).
+    Policy: only whitelist extensions (PDF, Office/ODF docs, pictures) are
+    exportable; ICS/calendar is never exported as a file (see message_export).
+    """
+    args = ["attachment", "list", *_acc(account), "-m", folder]
+    if include_inline:
+        args.append("-i")
+    args.extend(["--", id])
+    result = await _himalaya(*args)
+    if "error" in result:
+        return json.dumps(result, ensure_ascii=False, indent=2)
+    entries = result if isinstance(result, list) else []
+    out = []
+    for e in entries:
+        exportable, reason = classify_attachment(
+            e.get("filename", ""), e.get("mime", ""), e.get("size", 0), MAX_EXPORT_BYTES)
+        item = dict(e)
+        item["exportable"] = exportable
+        item["block_reason"] = reason
+        out.append(item)
+    return json.dumps({"id": id, "folder": folder, "attachments": out}, ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
+async def attachment_export(
+    id: str,
+    attachment_id: int,
     folder: str = "INBOX",
     account: Optional[str] = None,
 ) -> str:
-    """Download all attachments for a message to the data directory."""
-    result = await _himalaya("attachment", "download", *_acc(account), "-m", folder, "-d", DATA_DIR, "--", id)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    """Export one attachment as base64 JSON (size-capped, never truncated).
+
+    Peek-safe: attachment download never sets \\Seen (verified on himalaya
+    v2.0.0).
+    """
+    args = ["attachment", "list", *_acc(account), "-m", folder, "-i", "--", id]
+    listing = await _himalaya(*args)
+    if "error" in listing:
+        return json.dumps(listing, ensure_ascii=False, indent=2)
+    entries = listing if isinstance(listing, list) else []
+    if attachment_id < 1 or attachment_id > len(entries):
+        return json.dumps(
+            {"error": f"no attachment with id {attachment_id} on message {id}", "stays_on_server": True},
+            ensure_ascii=False, indent=2)
+    entry = entries[attachment_id - 1]
+    ok, reason = classify_attachment(
+        entry.get("filename", ""), entry.get("mime", ""), entry.get("size", 0), MAX_EXPORT_BYTES)
+    if not ok:
+        return json.dumps(
+            {"error": f"attachment not exported: {reason}", "attachment": entry, "stays_on_server": True},
+            ensure_ascii=False, indent=2)
+    with tempfile.TemporaryDirectory() as tmp:
+        dl = await _himalaya(
+            "attachment", "download", *_acc(account), "-m", folder,
+            "-d", tmp, "--", id, str(attachment_id), timeout=ATTACHMENT_DL_TIMEOUT)
+        if "error" in dl:
+            return json.dumps(dl, ensure_ascii=False, indent=2)
+        path = os.path.join(tmp, os.path.basename(entry["filename"]))
+        if not os.path.isfile(path):
+            return json.dumps({"error": "downloaded file not found", "attachment": entry}, ensure_ascii=False, indent=2)
+        size = os.path.getsize(path)
+        if size != entry.get("size"):
+            return json.dumps(
+                {
+                    "error": f"size mismatch: listed {entry.get('size')} vs on-disk {size}",
+                    "attachment": entry,
+                    "stays_on_server": True,
+                },
+                ensure_ascii=False, indent=2)
+        if size > MAX_EXPORT_BYTES:
+            return json.dumps(
+                {
+                    "error": f"attachment not exported: size {size} exceeds cap {MAX_EXPORT_BYTES} bytes",
+                    "stays_on_server": True,
+                },
+                ensure_ascii=False, indent=2)
+        with open(path, "rb") as f:
+            data = f.read()
+    if looks_like_markup(data):
+        return json.dumps(
+            {
+                "error": "attachment not exported: payload looks like markup (SVG/XML/HTML masquerade)",
+                "attachment": entry,
+                "stays_on_server": True,
+            },
+            ensure_ascii=False, indent=2)
+    return json.dumps(
+        {
+            "id": id,
+            "folder": folder,
+            "attachment_id": attachment_id,
+            "filename": entry.get("filename"),
+            "mime": entry.get("mime"),
+            "size": size,
+            "encoding": "base64",
+            "content_b64": base64.b64encode(data).decode("ascii"),
+        },
+        ensure_ascii=False, indent=2)
 
 
 @mcp.tool()
@@ -371,15 +474,17 @@ async def health_check() -> str:
             "DEFAULT_ACCOUNT": DEFAULT_ACCOUNT or "(himalaya default)",
             "DRAFTS_FOLDER": DRAFTS_FOLDER,
             "TRASH_FOLDER": TRASH_FOLDER,
-            "DATA_DIR": DATA_DIR,
+            "ATTACHMENT_MAX_BYTES": MAX_EXPORT_BYTES,
+            "ATTACHMENT_DL_TIMEOUT": ATTACHMENT_DL_TIMEOUT,
         },
         "tools_registered": [
             "folder_list", "envelope_list", "message_read",
-            "message_export", "attachment_download", "template_write",
-            "template_reply", "template_forward", "template_save",
-            "draft_delete", "flag_set", "health_check",
+            "message_export", "attachment_list", "attachment_export",
+            "template_write", "template_reply", "template_forward",
+            "template_save", "draft_delete", "flag_set", "health_check",
         ],
         "send_capability": False,
+        "attachment_whitelist_exts": sorted(ALLOWED_EXTS),
     }
     return json.dumps(status, indent=2)
 

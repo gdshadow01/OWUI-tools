@@ -47,6 +47,10 @@ RAG/01_My_Little_RAG_Ingestion/chunks/
 RAG/01_My_Little_RAG_Ingestion/metadata/
 openterminal/data/
 python-bash/workspace/
+websearch-mcp/browser-profile/
+
+# --- ChatGPT subscription OAuth tokens (litellm chatgpt/ provider) ---
+litellm/chatgpt-auth/
 
 # --- Python bytecode / cache ---
 __pycache__/

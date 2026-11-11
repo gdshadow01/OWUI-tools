@@ -3,7 +3,7 @@
 default = true
 email = "user@example.com"
 display-name = "Your Name"
-downloads-dir = "/data"
+downloads-dir = "/tmp/dl"
 # Bare authority defaults to implicit TLS (imaps://...:993).
 # For STARTTLS use: imap.server = "imap://imap.example.com:143"
 imap.server = "imap.example.com"

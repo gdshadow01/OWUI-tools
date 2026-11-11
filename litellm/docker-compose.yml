@@ -1,17 +1,26 @@
 services:
   litellm:
-    image: docker.litellm.ai/berriai/litellm:main-latest
+    image: docker.litellm.ai/berriai/litellm:v1.103.2@sha256:f63fb81b831b170ec16851e23c36ac5bf52ef106b271406429524a2ed730bbfd
     container_name: litellm-proxy
 #    ports:
 #      - "4000:4000"
     volumes:
       - ./config/config.yml:/app/config.yaml:ro  # Read-only mount for config
       - ./config/strip_hermes.py:/app/strip_hermes.py:ro  # callback module referenced by config.yml
+      - ./config/fallback_notify.py:/app/fallback_notify.py:ro  # callback module referenced by config.yml
+      - ./config/strip_thinking.py:/app/strip_thinking.py:ro  # callback module referenced by config.yml
+      - ./config/codex_session_id.py:/app/codex_session_id.py:ro  # callback module referenced by config.yml
+      - ./config/strip_mistral_reasoning.py:/app/strip_mistral_reasoning.py:ro  # callback module referenced by config.yml (2026-11-02)
+      - ./config/enforce_effort_policy.py:/app/enforce_effort_policy.py:ro  # callback module referenced by config.yml (plan 261031)
+      - ./chatgpt-auth:/app/chatgpt-auth  # ChatGPT subscription OAuth tokens (rw: proxy rewrites auth.json on refresh)
     env_file:
       - .env
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      CHATGPT_TOKEN_DIR: "/app/chatgpt-auth"  # litellm chatgpt/ provider token dir (auth.json must stay writable)
 #      STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
+#      GOTIFY_URL: "http://<gotify-host>"   # gotify base URL — enables fallback-failover push pings; set per host in the gitignored litellm/.env (dummies in .env.example; compose env_file delivers), NOT here
+#      GOTIFY_TOKEN: "<app-token>"          # gotify application token (litellm app)
     command:
       - "--config"
       - "/app/config.yaml"

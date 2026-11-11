@@ -14,6 +14,9 @@ services:
       - PAGE_MAX_CONTENT_LENGTH=${PAGE_MAX_CONTENT_LENGTH:-50000}
       - MCP_HOST=${MCP_HOST:-0.0.0.0}
       - MCP_PORT=${MCP_PORT:-9200}
+      - USE_REDDIT_BACKEND=${USE_REDDIT_BACKEND:-yes}
+      - REDDIT_MIN_INTERVAL=${REDDIT_MIN_INTERVAL:-65}
+      - REDDIT_CACHE_TTL=${REDDIT_CACHE_TTL:-600}
     env_file:
       - .env
     networks:

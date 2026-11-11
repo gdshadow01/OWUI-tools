@@ -10,6 +10,7 @@ from qdrant_client.http.models import (
 )
 from langchain_openai import OpenAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
+from reranker import RERANK_ENABLED, maybe_rerank
 
 # Configuration
 # Deliberately re-declared in RAG/01_My_Little_RAG_Ingestion/config.py (self-contained
@@ -43,6 +44,21 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:1143
 
 # BM25 configuration
 BM25_LANGUAGE = os.getenv("BM25_LANGUAGE", "german")
+
+# Reranker add-on (reranker.py) — optional candidate-set widening. When the
+# reranker is enabled AND RERANK_CANDIDATES > top_k, the Qdrant RRF limit
+# (and prefetch limits) are raised to it; the candidate list is cut back to
+# top_k after scoring. 0/empty = in-place arm (rerank exactly the returned
+# top_k). OPTIONAL knob: never in validate_required_env(); malformed values
+# degrade to the in-place arm, they must not affect startup.
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name) or default)
+    except (TypeError, ValueError):
+        return default
+
+
+RERANK_CANDIDATES = _env_int("RERANK_CANDIDATES", 0)
 
 
 def validate_required_env():
@@ -93,6 +109,22 @@ class RetrievalEngine:
     def __init__(self):
         self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=30)
         self.embedding_func = get_embedding_function()
+
+    def _rerank_fetch_limit(self, top_k: int) -> int:
+        """Qdrant fetch width for hybrid queries: top_k, raised to
+        RERANK_CANDIDATES when the reranker is enabled and asks for a wider
+        candidate set (cut back to top_k after scoring). With the reranker
+        disabled this is always top_k — the Qdrant call shape stays
+        byte-identical to the pre-add-on engine."""
+        if RERANK_ENABLED and RERANK_CANDIDATES > top_k:
+            return RERANK_CANDIDATES
+        return top_k
+
+    def _maybe_rerank(self, query: str, results: List[dict]) -> List[dict]:
+        """Optional rerank pass — no-op unless RERANK_ENABLED is truthy;
+        on any reranker failure the original list is returned unchanged
+        (see reranker.maybe_rerank)."""
+        return maybe_rerank(query, results)
 
     def list_collections(self) -> List[Dict[str, Any]]:
         """
@@ -190,6 +222,7 @@ class RetrievalEngine:
 
             dense_vector = self.embedding_func.embed_query(query)
 
+            fetch_limit = self._rerank_fetch_limit(top_k)
             try:
                 search_result = self.client.query_points(
                     collection_name=collection_to_search,
@@ -197,16 +230,16 @@ class RetrievalEngine:
                         models.Prefetch(
                             query=dense_vector,
                             using="dense",
-                            limit=top_k * 2,
+                            limit=fetch_limit * 2,
                         ),
                         models.Prefetch(
                             query=_build_bm25_query(query),
                             using="sparse",
-                            limit=top_k * 3,
+                            limit=fetch_limit * 3,
                         ),
                     ],
                     query=models.FusionQuery(fusion=models.Fusion.RRF),
-                    limit=top_k,
+                    limit=fetch_limit,
                     with_payload=True
                 ).points
 
@@ -234,6 +267,11 @@ class RetrievalEngine:
 
             if min_score > 0:
                 results = [r for r in results if r["score"] >= min_score]
+
+            results = self._maybe_rerank(query, results)
+            if len(results) > top_k:
+                # Widened candidate arm: cut back to top_k after scoring.
+                results = results[:top_k]
 
             return results
 
@@ -276,6 +314,7 @@ class RetrievalEngine:
                 ]
             )
 
+            fetch_limit = self._rerank_fetch_limit(top_k)
             try:
                 search_result = self.client.query_points(
                     collection_name=collection_to_search,
@@ -283,18 +322,18 @@ class RetrievalEngine:
                         models.Prefetch(
                             query=dense_vector,
                             using="dense",
-                            limit=top_k * 2,
+                            limit=fetch_limit * 2,
                             filter=file_filter,
                         ),
                         models.Prefetch(
                             query=_build_bm25_query(query),
                             using="sparse",
-                            limit=top_k * 3,
+                            limit=fetch_limit * 3,
                             filter=file_filter,
                         ),
                     ],
                     query=models.FusionQuery(fusion=models.Fusion.RRF),
-                    limit=top_k,
+                    limit=fetch_limit,
                     with_payload=True
                 ).points
 
@@ -322,6 +361,11 @@ class RetrievalEngine:
 
             if min_score > 0:
                 results = [r for r in results if r["score"] >= min_score]
+
+            results = self._maybe_rerank(query, results)
+            if len(results) > top_k:
+                # Widened candidate arm: cut back to top_k after scoring.
+                results = results[:top_k]
 
             return results
 

@@ -29,72 +29,6 @@ model_list:
 
   # ==================== Z.AI (ZHIPU AI) ====================
   # CODING API
-  - model_name: zai-glm-4.5
-    litellm_params:
-      model: zai/glm-4.5
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.5-air
-    litellm_params:
-      model: zai/glm-4.5-air
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.6
-    litellm_params:
-      model: zai/glm-4.6
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-
-  - model_name: zai-glm-4.7
-    litellm_params:
-      model: zai/glm-4.7
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 6e-07
-      output_cost_per_token: 2.2e-06
-      cache_read_input_token_cost: 1.1e-07
-
-  - model_name: zai-glm-5
-    litellm_params:
-      model: zai/glm-5
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      input_cost_per_token: 1e-06
-      output_cost_per_token: 3.2e-06
-      cache_read_input_token_cost: 2e-07
-
-  - model_name: zai-glm-5-turbo
-    litellm_params:
-      model: zai/glm-5-turbo
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      input_cost_per_token: 1.2e-06
-      output_cost_per_token: 4e-06
-      cache_read_input_token_cost: 2.4e-07
-
-  - model_name: zai-glm-5.1
-    litellm_params:
-      model: zai/glm-5.1
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 1.4e-06
-      output_cost_per_token: 4.4e-06
-      cache_read_input_token_cost: 2.6e-07
-
-  - model_name: zai-glm-5.2
-    litellm_params:
-      model: zai/glm-5.2
-      api_key: os.environ/ZAI_API_KEY
-      api_base: os.environ/ZAI_API_BASE
-      drop_params: true
-      input_cost_per_token: 0.0000014        # $1.40 / 1M
-      output_cost_per_token: 0.0000044       # $4.40 / 1M
-      cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
-
   - model_name: zai-glm-5.3
     litellm_params:
       model: zai/glm-5.3
@@ -105,11 +39,9 @@ model_list:
       output_cost_per_token: 0.0000044       # $4.40 / 1M
       cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
 
-  # GLM-5.3-Flash: natively multimodal (text+image in), 1M ctx, released 2026-08-26.
-  # model_name kept bare (no zai- prefix): task spec requires id "glm-5.3-flash".
-  # Pricing = LIST prices (docs.z.ai/guides/overview/pricing, 2026-08-27); 50% promo
-  # runs until 2026-09-09 (UTC+8) — list prices encoded so spend logs stay correct after.
-  - model_name: glm-5.3-flash
+  # Prefixed alias avoids registry-known bare-name parameter handling.
+  # strip_thinking also removes unsupported client thinking kwargs.
+  - model_name: zai-glm-5.3-flash
     litellm_params:
       model: zai/glm-5.3-flash
       api_key: os.environ/ZAI_API_KEY
@@ -118,129 +50,256 @@ model_list:
       input_cost_per_token: 0.00000015       # $0.15 / 1M (promo $0.075 until 2026-09-09)
       output_cost_per_token: 0.0000005       # $0.50 / 1M (promo $0.25)
       cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached (promo $0.015)
-  # ==================== OPENROUTER ====================
 
-  - model_name: flux-openrouter
+  # ==================== HERMES VIRTUAL MODELS ====================
+  # Virtual aliases for hermes profiles — swap backing model HERE, not in profiles.
+  # Primary lanes back onto the Mistral Vibe key (MISTRAL_VIBE_KEY, .209 only;
+  # swapped off the ChatGPT Plus subscription 2026-11-02 — chatgpt-gpt-6.1-sol /
+  # chatgpt-gpt-6-luna / chatgpt-gpt-6-astra remain as manual choices).
+  # Effort carriers: GLM lanes use extra_body.reasoning_effort (chat-completions
+  # wire). Top-level reasoning_effort from clients is stripped for these IDs by
+  # enforce_effort_policy (plan 261031).
+  # Keep the existing Z.ai heartbeat -> DeepSeek fallback chains unchanged.
+  # Swapped to Mistral Vibe backings 2026-11-02 (ChatGPT Plus retired from the
+  # primary lanes; user-directed). GLM effort enum is low/high/max — the
+  # Responses-API xhigh level has no equivalent here, plan drops xhigh→high.
+  # Replayed assistant `reasoning` in history is stripped pre-routing by
+  # strip_mistral_reasoning (Mistral strict schema 422s on it; Z.ai accepts
+  # the echo, so zai-backed groups keep receiving it).
+  # Official Mistral Vibe rate limits (provider docs, checked 2026-11-02):
+  # zai-glm-5-3 32,000,000 TPM / 66.67 RPS; zai-glm-5-3-flash 10,666,666 TPM
+  # / 22.22 RPS (limit block shared with/taken from deepseek-v4-1-flash-1017:
+  # 10,000,000 TPM / 22.22 RPS). Fleet usage (~<=90k-token prompts, low RPM)
+  # is orders of magnitude below — real 429s would be an incident, not noise.
+  - model_name: hermes-tasks
     litellm_params:
-      model: openrouter/black-forest-labs/flux.2-klein-4b
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
       drop_params: true
       extra_body:
-        modalities: ["image"]
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
+
+  - model_name: hermes-plan
+    litellm_params:
+      model: mistral/zai-glm-5-3
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.0000014          # $1.40 / 1M
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000014  # $0.14 / 1M cached
+
+  - model_name: hermes-execute
+    litellm_params:
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
+
+  # Legacy coding pair (opencode repinned to hermes-plan/hermes-tasks
+  # 2026-10-31); kept as manual/rollback names on the main-key allowlist.
+  # Backing moved to FULL glm-5.3 2026-10-31 (user-directed — plan-grade
+  # reasoning on the coding-plan lane; research note 261020_LLM-plan-research,
+  # 2026-10-31 addendum). effort stays high (glm-5.3 lane rec = high).
+  - model_name: hermes-coding-plan
+    litellm_params:
+      model: zai/glm-5.3
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.0000014          # $1.40 / 1M (glm-5.3 list)
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
+
+  # hermes-coding-execute — effort medium→high 2026-10-31: GLM-5.3(-Flash) has
+  # NO medium (enum low/high/max); out-of-enum values silently fall back to the
+  # DEFAULT MAX (research note 261020_LLM-plan-research, 2026-10-31 addendum)
+  # — medium was accidentally the worst case, not a saving.
+  - model_name: hermes-coding-execute
+    litellm_params:
+      model: zai/glm-5.3-flash
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000005
+      cache_read_input_token_cost: 0.00000003
+
+  # Swapped to Mistral Vibe 2026-11-02: zai-glm-5-3-flash is natively
+  # multimodal (text+image in, verified live via the mistral-vibe-* twin).
+  # Effort low: vision lane needs fast turnaround; GLM enum has no medium.
+  # Rollback: openai/deepseek-flash (retired deepseek-v4-flash-vision-exp id
+  # is still answered upstream). Old deepseek pricing kept for reference:
+  # in $0.15 / out $0.60 / cache $0.003 per 1M (off-peak, 2026-10-13).
+  - model_name: hermes-vision
+    litellm_params:
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      extra_body:
+        reasoning_effort: low
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
+
+  # Virtual alias for the hermes fallback tier (fallback_providers #1 in all
+  # hermes configs, via LITELLM_FALLBACK_API_KEY). Backing swappable HERE —
+  # same params as hermes-vision / deepseek-flash above.
+  - model_name: hermes-fallback
+    litellm_params:
+      model: openai/deepseek-flash
+      api_base: https://api.deepseek.com/v1
+      api_key: os.environ/DEEPSEEK_API_KEY
+      drop_params: true
+      extra_body:
+        reasoning_effort: high   # explicit pin 2026-10-31 (user-directed; deepseek
+                                 # default is high too — pin survives an upstream
+                                 # default change). Serves full agent lanes on failover.
+      # pricing = deepseek-flash off-peak (checked 2026-10-13, same schedule
+      # as hermes-vision above; peak x2 calls under-count in spend logs)
+      input_cost_per_token: 0.00000015          # $0.15 / 1M off-peak (peak $0.30)
+      output_cost_per_token: 0.0000006          # $0.60 / 1M off-peak (peak $1.20)
+      cache_read_input_token_cost: 0.000000003  # $0.003 / 1M cache-hit (peak $0.006)
+
+  # ---- Heartbeat lane twins (2026-10-31, user-directed) ----
+  # Z.ai backings retained independently of the ChatGPT primary lanes. Two roles:
+  # (a) hop-1 fallback targets; (b) separately routable heartbeat/cron traffic.
+  # Deliberately NO fallbacks of their own: if zai is out, heartbeat calls
+  # fail instead of silently burning deepseek PAYG. All three stay at high.
+  - model_name: hermes-heartbeat-plan
+    litellm_params:
+      model: zai/glm-5.3
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.0000014          # $1.40 / 1M (glm-5.3 list)
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000026  # $0.26 / 1M cached input
+
+  - model_name: hermes-heartbeat-execute
+    litellm_params:
+      model: zai/glm-5.3-flash
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000005
+      cache_read_input_token_cost: 0.00000003
+
+  - model_name: hermes-heartbeat-tasks
+    litellm_params:
+      model: zai/glm-5.3-flash
+      api_key: os.environ/ZAI_API_KEY
+      api_base: os.environ/ZAI_API_BASE
+      drop_params: true
+      extra_body:
+        reasoning_effort: high
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000005
+      cache_read_input_token_cost: 0.00000003
+
+  # ==================== OPENROUTER ====================
 
   - model_name: openrouter-deepseek-v4-flash(0.14/0.28)
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-flash
       api_key: os.environ/OPENROUTER_API_KEY
 
-  - model_name: openrouter-deepseek-v4-pro(1.74/3.48)
-    litellm_params:
-      model: openrouter/deepseek/deepseek-v4-pro
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-gpt-oss-120b(0.039/0.19)
-    litellm_params:
-      model: openrouter/openai/gpt-oss-120b
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-grok-4.1-fast(0.2/0.5)
-    litellm_params:
-      model: openrouter/x-ai/grok-4.1-fast
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-kimi-K2.5(0.45/2.20)
-    litellm_params:
-      model: openrouter/moonshotai/kimi-k2.5
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-kimi-K2.6(0.7448/4.655)
-    litellm_params:
-      model: openrouter/moonshotai/kimi-k2.6
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-minimax-m2.7(0.3/1.20)
-    litellm_params:
-      model: openrouter/minimax/minimax-m2.7
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-xiaomi-mimo-v2.5(0.4/2)
-    litellm_params:
-      model: openrouter/xiaomi/mimo-v2.5
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-xiaomi-mimo-v2.5-pro(1/3)
-    litellm_params:
-      model: openrouter/xiaomi/mimo-v2.5-pro
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-z-ai/glm-4.7-flash(0.06/0.4)
-    litellm_params:
-      model: openrouter/z-ai/glm-4.7-flash
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-z-ai/glm-5.1(1.05/3.50)
-    litellm_params:
-      model: openrouter/z-ai/glm-5.1
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-zai-glm-4.5-air-free
-    litellm_params:
-      model: openrouter/z-ai/glm-4.5-air:free
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openrouter-zai-glm-4.7(0.38/1.98)
-    litellm_params:
-      model: openrouter/z-ai/glm-4.7
-      api_key: os.environ/OPENROUTER_API_KEY
-
   # ==================== DEEPSEEK ====================
   # deepseek-chat and deepseek-reasoner are deprecated;
   # both map to deepseek-v4-flash (non-thinking vs thinking mode).
   # deepseek-v4-flash supports both modes via parameter.
+  # v4 pricing (checked 2026-08-31, api-docs.deepseek.com/quick_start/pricing):
+  # PEAK Mon-Fri 01:00-04:00 & 06:00-10:00 UTC = 2x off-peak; all else off-peak.
+  # Static costs encode OFF-PEAK (scheduled LLM usage targets off-peak; litellm
+  # cannot vary price by time of day). Alias names keep their (now stale) price
+  # suffixes — referenced as fallback model in hermes global + 6 profile configs.
 
   - model_name: deepseek-v4-flash(0.14/0.28)
     litellm_params:
       model: deepseek/deepseek-v4-flash
       api_key: os.environ/DEEPSEEK_API_KEY
+      input_cost_per_token: 0.00000022          # $0.22 / 1M off-peak (peak $0.44)
+      output_cost_per_token: 0.00000066         # $0.66 / 1M off-peak (peak $1.32)
+      cache_read_input_token_cost: 0.000000007  # $0.007 / 1M cache-hit (peak $0.014)
 
   - model_name: deepseek-v4-pro(0.435/0.87)
     litellm_params:
       model: deepseek/deepseek-v4-pro
       api_key: os.environ/DEEPSEEK_API_KEY
-
-  # Experimental vision model (docs: https://api-docs.deepseek.com/guides/vision).
-  # No pricing suffix: experimental, pricing not yet published — SpendLogs will show $0 until costs are added.
-  # Routed via the openai/ provider, NOT deepseek/: litellm 1.93.0's deepseek
-  # transformation flattens message content lists to plain strings (drops image
-  # parts, vision arrives empty); DeepSeek's API is OpenAI-compatible, and the
-  # openai/ path passes content-part lists through unchanged.
-  - model_name: deepseek-v4-flash-vision-exp
-    litellm_params:
-      model: openai/deepseek-v4-flash-vision-exp
-      api_base: https://api.deepseek.com/v1
-      api_key: os.environ/DEEPSEEK_API_KEY
+      input_cost_per_token: 0.00000066          # $0.66 / 1M off-peak (peak $1.32)
+      output_cost_per_token: 0.00000198         # $1.98 / 1M off-peak (peak $3.96)
+      cache_read_input_token_cost: 0.000000011  # $0.011 / 1M cache-hit (peak $0.022)
 
   # ==================== MISTRAL AI ====================
-
-  - model_name: mistral-mistral-small(0.1/0.3)
-    litellm_params:
-      model: mistral/mistral-small-latest
-      api_key: os.environ/MISTRAL_API_KEY
 
   - model_name: mistral-mistral-large(0.5/1.5)
     litellm_params:
       model: mistral/mistral-large-latest
       api_key: os.environ/MISTRAL_API_KEY
 
-  - model_name: mistral-mistral-codestral(0.3/0.9)
+  # --- Mistral "Vibe" key (MISTRAL_VIBE_KEY, separate allowance/key from
+  # MISTRAL_API_KEY; user-added to .209 litellm/.env 2026-10-28) ---
+  # Third-party coding models hosted & served by Mistral in the EU.
+  # Prices: docs.mistral.ai/inference/pricing, checked 2026-10-28.
+  # Group names dash-prefixed → NOT registry-known → unknown client params
+  # dropped via drop_params (zai thinking-kwarg discipline, litellm #31084/#31085).
+  # NOTE: entries valid on .209 only until oracle litellm/.env gains MISTRAL_VIBE_KEY.
+  - model_name: mistral-vibe-glm-5.3-flash(0.15/0.5)
     litellm_params:
-      model: mistral/codestral-latest
-      api_key: os.environ/MISTRAL_API_KEY
+      model: mistral/zai-glm-5-3-flash
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.00000015         # $0.15 / 1M
+      output_cost_per_token: 0.0000005         # $0.50 / 1M
+      cache_read_input_token_cost: 0.00000003  # $0.03 / 1M cached
 
-  - model_name: mistral-mistral-medium(0.4/2)
+  - model_name: mistral-vibe-deepseek-v4.1-flash(0.3/1.2)
     litellm_params:
-      model: mistral/mistral-medium-latest
-      api_key: os.environ/MISTRAL_API_KEY
+      model: mistral/deepseek-v4-1-flash-1017
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.0000003          # $0.30 / 1M
+      output_cost_per_token: 0.0000012         # $1.20 / 1M
+      cache_read_input_token_cost: 0.000000007 # $0.007 / 1M cached
+
+  # Z.ai GLM 5.3 (non-flash): text-only, 1M context, 128k max output.
+  # Prices: docs.mistral.ai/models/zai-glm-5-3, checked 2026-11-02.
+  - model_name: mistral-vibe-glm-5.3(1.4/4.4)
+    litellm_params:
+      model: mistral/zai-glm-5-3
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.0000014          # $1.40 / 1M
+      output_cost_per_token: 0.0000044         # $4.40 / 1M
+      cache_read_input_token_cost: 0.00000014  # $0.14 / 1M cached
+
+  # Mistral Large 4 (26.10, public preview): multimodal, 1M context.
+  # Prices: docs.mistral.ai/models/mistral-large-4-0, checked 2026-11-02.
+  - model_name: mistral-vibe-mistral-large-4(0.7/2.1)
+    litellm_params:
+      model: mistral/mistral-large-4
+      api_key: os.environ/MISTRAL_VIBE_KEY
+      drop_params: true
+      input_cost_per_token: 0.0000007          # $0.70 / 1M
+      output_cost_per_token: 0.0000021         # $2.10 / 1M
+      cache_read_input_token_cost: 0.00000007  # $0.07 / 1M cached
 
   # ==================== GOOGLE / GEMINI ====================
 
@@ -254,28 +313,6 @@ model_list:
       model: gemini/gemini-3.1-pro-preview
       api_key: os.environ/GEMINI_API_KEY
 
-  # ==================== GROQ ====================
-
-  - model_name: groq-compound
-    litellm_params:
-      model: groq/groq/compound
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-gpt-oss-120b
-    litellm_params:
-      model: groq/openai/gpt-oss-120b
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-whisper-large-v3
-    litellm_params:
-      model: groq/whisper-large-v3
-      api_key: os.environ/GROQ_API_KEY
-
-  - model_name: groq-whisper-large-v3-turbo
-    litellm_params:
-      model: groq/whisper-large-v3-turbo
-      api_key: os.environ/GROQ_API_KEY
-
   # ==================== ALIBABA DASHSCOPE (QWEN) ====================
 
 #  - model_name: ali-qwen-flash(0.05/0.4)
@@ -285,19 +322,72 @@ model_list:
 #      api_base: os.environ/DASHSCOPE_API_BASE
 
 
+  # ==================== CHATGPT SUBSCRIPTION (Codex backend) ====================
+  # ChatGPT Plus subscription (not OpenAI API) via litellm's chatgpt/ provider.
+  # Auth: ONE shared auth.json at CHATGPT_TOKEN_DIR (/app/chatgpt-auth inside the
+  # container; host dir litellm/chatgpt-auth, gitignored). Login is OAuth device
+  # flow, done OUTSIDE the proxy; the refresh token is single-use and the file is
+  # rewritten on refresh -> exactly ONE host may hold a copy. .209 only; the
+  # oracle proxy has no auth file and serves these models as unavailable.
+  # Endpoint: Responses API. /v1/chat/completions is bridged to Responses.
+  # No cost-map price -> spend logs record $0 (subscription quota, not per-token
+  # billing); token counts are still attributed. Use rpm_limit/tpm_limit on keys
+  # for caps if needed.
+  # Model IDs + quota checked against developers.openai.com/codex/{models,
+  # pricing} on 2026-10-24 — all three usable on Plus (est. local msgs/5h:
+  # astra 5-45, sol 15-160, luna 350-3000; ONE shared pool per 5h window +
+  # unpublished weekly limits; shared with the human's own ChatGPT usage).
+  # Retired: gpt-5.4, gpt-5.5.
+  - model_name: chatgpt-gpt-6.1-sol
+    litellm_params:
+      model: chatgpt/gpt-6.1-sol
+    model_info:
+      mode: responses
+
+  - model_name: chatgpt-gpt-6-luna
+    litellm_params:
+      model: chatgpt/gpt-6-luna
+    model_info:
+      mode: responses
+
+  # Manual-only ChatGPT choices; no forced reasoning effort.
+  # All three share the subscription's quota pool.
+  - model_name: chatgpt-gpt-6-astra
+    litellm_params:
+      model: chatgpt/gpt-6-astra
+    model_info:
+      mode: responses
+
 # ==================== GENERAL SETTINGS ====================
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
+  # --- request/response payload storage + retention (added 2026-09-07) ---
+  store_prompts_in_spend_logs: true
+  maximum_spend_logs_retention_period: "90d"
 
 # ==================== LITELLM SETTINGS ====================
 litellm_settings:
     modify_params: true            # Auto-handle missing reasoning_content/thinking_blocks in multi-turn conversations
     check_provider_endpoint: true   # Queries upstream provider's /models endpoint to resolve wildcards (e.g. openai/*)
-#    fallbacks:                      # When a model fails all retries, fall back to these alternatives
-#      - zai-glm-5.1: ["deepseek-v4-flash(0.14/0.28)"]
-#      - deepseek-v4-flash(0.14/0.28): ["openrouter-deepseek-v4-flash(0.14/0.28)"]
-#      - deepseek-v4-pro(0.435/0.87): ["openrouter-deepseek-v4-flash(0.14/0.28)"]
+    # Production failover — 2-hop chains since 2026-10-31 (user-directed):
+    # primary zai lane -> heartbeat twin (same upstream, separate deployment =
+    # separate cooldown bucket) -> hermes-fallback (openai/deepseek-flash,
+    # pay-per-token) INSIDE the proxy. hermes-heartbeat-* deliberately get NO
+    # chain of their own: if zai is out, heartbeat calls fail instead of
+    # silently burning deepseek PAYG. Ordered in-list iteration verified on
+    # litellm v1.103.2 (router_utils/fallback_event_handlers.py::
+    # run_async_fallback `for mg in fallback_model_group`, first success wins;
+    # a hop with no fallback entry propagates to the next list entry).
+    # hermes-vision gets no chain: it IS deepseek-flash already.
+    # `fallbacks:` is a LIST of single-key mappings. Failover/recovery pings
+    # via fallback_notify.py (gotify).
+    fallbacks:
+      - hermes-plan: ["hermes-heartbeat-plan", "hermes-fallback"]
+      - hermes-execute: ["hermes-heartbeat-execute", "hermes-fallback"]
+      - hermes-tasks: ["hermes-heartbeat-tasks", "hermes-fallback"]
+      - hermes-coding-plan: ["hermes-heartbeat-plan", "hermes-fallback"]
+      - hermes-coding-execute: ["hermes-heartbeat-execute", "hermes-fallback"]
     num_retries: 3                  # Default number of retries per request before giving up
     request_timeout: 300            # Max total time (seconds) for any request before timing out
     cooldown_time: 600              # how long to skip a deployment after too many failures
@@ -310,7 +400,13 @@ litellm_settings:
 
 ## this is used to strip specific words from system prompts
   # ^ format: <filename_without_.py>.<instance_variable_name>
-    callbacks: strip_hermes.strip_hermes_handler
+    callbacks:
+      - strip_hermes.strip_hermes_handler
+      - fallback_notify.fallback_notifier
+      - strip_thinking.strip_thinking_handler  # pop client-sent `thinking` for zai-backed groups (litellm #31084/#31085, opencode 1.17.9 always sends it)
+      - codex_session_id.codex_session_id_hook  # stable sharded session ids for chatgpt/* groups -> backend prompt-cache reuse (plan 261026)
+      - strip_mistral_reasoning.strip_mistral_reasoning_handler  # pop replayed assistant reasoning for mistral-backed groups (strict-schema 422, 2026-11-02) — must stay BEFORE enforce_effort_policy
+      - enforce_effort_policy.effort_policy_handler  # managed-alias client-effort strip (plan 261031)
 
 
       # Optional: Disable SSL verification for self-signed certificates

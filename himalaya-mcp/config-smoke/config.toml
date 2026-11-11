@@ -1,0 +1,9 @@
+# Smoke-test account for the offline m2dir stack (no real mailbox, no creds).
+# The store root is the ./tests/fixtures/store volume mounted at /store.
+[accounts.smoke]
+default = true
+email = "smoke@fixture.invalid"
+downloads-dir = "/tmp/dl"
+
+[accounts.smoke.m2dir]
+root = "/store"

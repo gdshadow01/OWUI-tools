@@ -12,8 +12,8 @@ pydantic>=2.0.0
 # Environment handling
 python-dotenv>=1.0.0
 
-# HTTP client support
-# httpx>=0.24.0
+# HTTP client support (reranker add-on)
+httpx>=0.24.0
 
 # Langchain for embedding functions
 langchain-community>=0.0.0
